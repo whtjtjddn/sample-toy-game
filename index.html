@@ -2,291 +2,690 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>테트리스</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>온라인 건배 🥂</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=Bebas+Neue&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: sans-serif; background: #1a1a2e; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 2rem; }
-#app { display: flex; justify-content: center; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
-canvas { border: 1px solid #444; border-radius: 8px; display: block; }
-#side { display: flex; flex-direction: column; gap: 12px; min-width: 120px; }
-.panel { background: #16213e; border-radius: 8px; padding: 12px 16px; }
-.panel-label { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
-.panel-value { font-size: 22px; font-weight: 500; color: #eee; }
-#next-canvas { display: block; }
-#msg { text-align: center; font-size: 13px; color: #aaa; }
-#btn { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #555; background: #16213e; color: #eee; font-size: 14px; cursor: pointer; transition: background 0.15s; }
-#btn:hover { background: #0f3460; }
-.keys { font-size: 11px; color: #777; line-height: 1.8; }
-</style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#ddc89a;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:12px}
+#gba{
+  font-family:'Noto Sans KR',sans-serif;
+  background:#fdf0d5;
+  background-image:repeating-linear-gradient(88deg,rgba(180,110,30,.03) 0,transparent 1px,transparent 36px),
+    repeating-linear-gradient(3deg,rgba(160,90,20,.02) 0,transparent 1px,transparent 52px);
+  width:100%;max-width:480px;min-height:540px;
+  border-radius:12px;overflow:hidden;
+  display:flex;flex-direction:column;
+  box-shadow:0 8px 40px rgba(100,50,0,.26);
+  position:relative;
+}
+.screen{display:none;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:28px 20px;position:relative}
+.screen.on{display:flex}
+#sb.on{align-items:stretch;justify-content:flex-start;padding:0}
+#sl,#sd{background:transparent}
+
+/* ── 로비 입력 ── */
+.ri{
+  background:rgba(255,255,255,.78);border:1.5px solid #c8903a;
+  border-radius:8px;padding:14px 18px;font-size:24px;font-weight:900;
+  letter-spacing:8px;text-align:center;color:#a05010;width:218px;
+  text-transform:uppercase;outline:none;font-family:inherit;margin-bottom:12px;
+}
+.ri::placeholder{color:rgba(180,110,40,.3)}
+.ri:focus{border-color:#d06010;box-shadow:0 0 0 3px rgba(208,96,16,.15)}
+.btn{background:#d06010;color:#fff;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;width:218px;margin-bottom:8px;transition:background .15s}
+.btn:hover{background:#e07020}
+.btng{background:rgba(255,255,255,.65);color:#9a6030;border:1.5px solid #d0a060;border-radius:8px;padding:11px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;width:218px;transition:all .15s}
+.btng:hover{border-color:#d06010;color:#d06010}
+
+/* ── 주종 선택 카드 ── */
+.dg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:400px;margin-top:20px}
+.dc{background:rgba(255,255,255,.65);border:1.5px solid #dbb070;border-radius:10px;padding:14px 6px 12px;text-align:center;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:7px}
+.dc:hover{border-color:#d06010;background:rgba(255,255,255,.92);transform:translateY(-3px);box-shadow:0 4px 14px rgba(180,80,0,.13)}
+.dc.sel{border-color:#d06010;background:rgba(255,255,255,.92);box-shadow:0 0 0 3px rgba(200,96,16,.17)}
+
+/* ── 바 헤더 ── */
+.bh{width:100%;padding:10px 14px;background:rgba(255,240,210,.92);border-bottom:2px solid #d4a060;display:flex;align-items:center;gap:7px;flex-shrink:0;position:relative;flex-wrap:wrap}
+.bh::after{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:140px;height:52px;background:radial-gradient(ellipse at 50% 0%,rgba(255,200,80,.42) 0%,transparent 70%);pointer-events:none}
+.cb{font-size:10px;font-weight:700;color:#9a6020;letter-spacing:2px;background:rgba(255,255,255,.75);border:1px solid #d4a060;border-radius:5px;padding:3px 8px;white-space:nowrap}
+.hcnt{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1px;color:#c05010;background:rgba(255,220,170,.6);border:1px solid #e0a060;border-radius:5px;padding:2px 9px;white-space:nowrap;margin-left:auto}
+.mb{background:rgba(255,255,255,.75);color:#8a5818;border:1px solid #d4a060;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap}
+.mb:hover{border-color:#d06010;color:#d06010}
+.mbc{background:#d06010;color:#fff;border:none;border-radius:5px;padding:5px 10px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .15s}
+.mbc:hover{background:#e07020}
+
+/* ── 테이블 영역 ── */
+.tw{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:300px}
+
+/* 위: 밝은 따뜻한 벽 */
+.wall{position:absolute;bottom:38%;left:0;right:0;top:0;background:linear-gradient(180deg,#fce8b4 0%,#fdf0d5 100%)}
+.wall::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(255,200,80,.32) 0%,transparent 60%)}
+
+/* 황동 테이블 엣지 */
+.tl{position:absolute;bottom:38%;left:0;right:0;z-index:2;height:6px;background:linear-gradient(90deg,transparent,#7a5018 8%,#c09035 35%,#e8b848 50%,#c09035 65%,#7a5018 92%,transparent);box-shadow:0 2px 8px rgba(160,100,0,.32),0 -1px 3px rgba(255,210,100,.18)}
+
+/* 따뜻한 우드 테이블 */
+.tt{position:absolute;bottom:0;left:0;right:0;top:62%;background:#c07828;background-image:repeating-linear-gradient(91deg,rgba(80,30,0,.1) 0,transparent 1px,transparent 20px),repeating-linear-gradient(89deg,rgba(60,20,0,.07) 0,transparent 2px,transparent 36px),linear-gradient(180deg,rgba(0,0,0,.2) 0%,transparent 28%,rgba(0,0,0,.07) 100%)}
+.tt::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(255,210,100,.16) 0%,transparent 55%)}
+
+/* ── 잔 슬롯 ── */
+.gr{display:flex;align-items:flex-end;justify-content:center;flex-wrap:wrap;gap:16px;position:relative;z-index:4;padding:0 10px 50px;width:100%}
+.gs{display:flex;flex-direction:column;align-items:center;gap:5px;position:relative;transition:transform .18s}
+.gs.tap{cursor:pointer}
+.gs.tap:hover{transform:translateY(-8px) scale(1.1)}
+.gs.tap:hover .gh{opacity:1;transform:translateY(0)}
+.gh{position:absolute;top:-28px;font-size:11px;font-weight:700;color:#c05010;background:rgba(255,245,225,.96);border:1px solid #e0a860;border-radius:5px;padding:2px 8px;white-space:nowrap;opacity:0;transform:translateY(4px);transition:all .18s;pointer-events:none;box-shadow:0 2px 6px rgba(180,80,0,.12)}
+.gs.shake{animation:gshk .5s ease}
+.gs.rg svg{filter:drop-shadow(0 0 12px rgba(240,160,20,.72))}
+.gnm{font-size:11px;font-weight:700;color:#a07040}.gnm.me{color:#c06018}
+.gsub{font-size:10px;color:#b07838;animation:pls 1.4s infinite}
+
+/* ── 건배 오버레이 ── */
+#cov{display:none;position:absolute;inset:0;background:rgba(255,240,200,.58);z-index:15;align-items:center;justify-content:center;pointer-events:none}
+#cov.on{display:flex}
+.ctxt{font-family:'Bebas Neue',sans-serif;font-size:72px;letter-spacing:6px;color:#c05008;text-shadow:0 2px 16px rgba(220,100,0,.3);animation:cpop .5s cubic-bezier(.34,1.56,.64,1)}
+
+/* ── 푸터 ── */
+.bf{padding:10px 14px;background:rgba(255,240,205,.92);border-top:1.5px solid #d4a060;display:flex;align-items:center;gap:10px;flex-shrink:0}
+
+/* ── 애니메이션 ── */
+@keyframes fB{from{transform:translateY(115px)}to{transform:translateY(0)}}
+@keyframes fS{from{transform:translateY(74px)}to{transform:translateY(0)}}
+@keyframes bb{0%{transform:translateY(0);opacity:.7}100%{transform:translateY(-90px);opacity:0}}
+@keyframes fi{from{transform:scaleY(0) translateY(8px);opacity:0}to{transform:scaleY(1) translateY(0);opacity:1}}
+@keyframes gshk{0%,100%{transform:translateX(0) rotate(0)}20%{transform:translateX(-9px) rotate(-5deg)}40%{transform:translateX(9px) rotate(5deg)}60%{transform:translateX(-5px) rotate(-3deg)}80%{transform:translateX(5px) rotate(3deg)}}
+@keyframes cpop{from{opacity:0;transform:scale(.08) rotate(-14deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes pf{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--px),var(--py)) scale(0)}}
+@keyframes sjt{0%{transform:rotate(0deg)}100%{transform:rotate(-108deg)}}
+@keyframes pls{0%,100%{opacity:.35}50%{opacity:.85}}
+@keyframes cntpop{0%{transform:scale(1)}40%{transform:scale(1.8)}80%{transform:scale(.93)}100%{transform:scale(1)}}</style>
 </head>
 <body>
-
-<div id="app">
-  <canvas id="board" width="200" height="400"></canvas>
-  <div id="side">
-    <div class="panel">
-      <div class="panel-label">점수</div>
-      <div class="panel-value" id="score">0</div>
+<div id="gba">
+  <div id="sl" class="screen on"></div>
+  <div id="sd" class="screen"></div>
+  <div id="sb" class="screen">
+    <div class="bh">
+      <div class="cb" id="hc">방: ----</div>
+      <div id="hn" style="font-size:11px;color:#9a7040;font-weight:700">0명</div>
+      <div class="hcnt" id="hcnt">🥂 0</div>
+      <button class="mb" onclick="cpC(this)">코드 복사</button>
     </div>
-    <div class="panel">
-      <div class="panel-label">레벨</div>
-      <div class="panel-value" id="level">1</div>
+    <div class="tw">
+      <div class="wall"></div>
+      <div class="tl"></div>
+      <div class="tt"></div>
+      <div class="gr" id="gr"></div>
+      <div id="cov"><div class="ctxt">건배!</div></div>
     </div>
-    <div class="panel">
-      <div class="panel-label">줄</div>
-      <div class="panel-value" id="lines">0</div>
-    </div>
-    <div class="panel">
-      <div class="panel-label">다음</div>
-      <canvas id="next-canvas" width="80" height="80"></canvas>
-    </div>
-    <button id="btn">시작</button>
-    <div id="msg">↑ 시작 버튼을 누르세요</div>
-    <div class="keys">
-      ← → 이동<br>
-      ↑ 회전<br>
-      ↓ 빠르게<br>
-      Space 즉시 낙하
+    <div class="bf">
+      <div id="bm" style="font-size:12px;color:#a07040;flex:1;line-height:1.4"></div>
+      <button class="mbc" onclick="changeDrink()">🔄 주종 변경</button>
     </div>
   </div>
 </div>
-
 <script>
-const canvas = document.getElementById('board');
-const ctx = canvas.getContext('2d');
-const nextCanvas = document.getElementById('next-canvas');
-const nctx = nextCanvas.getContext('2d');
-const COLS = 10, ROWS = 20, SZ = 20;
+const myId='u'+Math.random().toString(36).slice(2,9);
+let myRoom=null,myDrink=null,myState='lobby',myNick='';
+let isAnim=false,barSig='',fillTimer=null;
+let mqttClient=null,heartbeatTimer=null;
+let roomUsers={};   // uid → {drink,state,ts}
+let cheerCount=0,lastCheerTs=0;
 
-const PIECES = [
-  { shape: [[1,1,1,1]], color: '#378ADD' },
-  { shape: [[1,1],[1,1]], color: '#FAC775' },
-  { shape: [[0,1,1],[1,1,0]], color: '#5DCAA5' },
-  { shape: [[1,1,0],[0,1,1]], color: '#D85A30' },
-  { shape: [[1,0,0],[1,1,1]], color: '#7F77DD' },
-  { shape: [[0,0,1],[1,1,1]], color: '#D4537E' },
-  { shape: [[0,1,0],[1,1,1]], color: '#97C459' },
-];
+const G=id=>document.getElementById(id);
+const show=id=>{document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));G(id).classList.add('on')};
+const NM={beer:'맥주',soju:'소주',somac:'소맥'};
+const FDUR={beer:1200,soju:800,somac:2200};
 
-let board, piece, next, score, level, lines, gameRunning, gameOver, dropInterval, animId;
-
-function newBoard() { return Array.from({length: ROWS}, () => Array(COLS).fill(0)); }
-
-function randomPiece() {
-  const p = PIECES[Math.floor(Math.random() * PIECES.length)];
-  return {
-    shape: p.shape.map(r => [...r]),
-    color: p.color,
-    x: Math.floor(COLS / 2) - Math.floor(p.shape[0].length / 2),
-    y: 0
-  };
+// ── 3D SVG Glasses ─────────────────────────────────────────────
+function beerSVG(uid,st){
+  const p=`b${uid.replace(/\W/g,'_')}`;
+  const filled=st==='full'||st==='cheering',anim=st==='filling';
+  const la=anim?'animation:fB .7s ease forwards':filled?'':`transform:translateY(115px)`;
+  const fa=anim?'opacity:0;animation:fi .35s .7s forwards':filled?'':'opacity:0';
+  // 그림자 (잔 아래)
+  const shadow=`<ellipse cx="34" cy="116" rx="22" ry="3.5" fill="rgba(0,0,0,.55)"/>`;
+  return`<svg width="68" height="122" viewBox="0 0 68 122" style="overflow:visible">
+<defs>
+  <!-- 맥주 액체: 왼쪽 밝고 오른쪽 어둠 -->
+  <linearGradient id="${p}L" x1="0" x2="1" y1="0" y2="0">
+    <stop offset="0%"   stop-color="#ffe860"/>
+    <stop offset="18%"  stop-color="#f0b020"/>
+    <stop offset="55%"  stop-color="#b87010"/>
+    <stop offset="85%"  stop-color="#6a3a04"/>
+    <stop offset="100%" stop-color="#2a1200"/>
+  </linearGradient>
+  <!-- 유리 반사 오버레이 -->
+  <linearGradient id="${p}G" x1="0" x2="1" y1="0" y2="0">
+    <stop offset="0%"   stop-color="rgba(255,255,255,.0)"/>
+    <stop offset="6%"   stop-color="rgba(255,255,255,.0)"/>
+    <stop offset="7%"   stop-color="rgba(255,255,255,.52)"/>
+    <stop offset="13%"  stop-color="rgba(255,255,255,.12)"/>
+    <stop offset="22%"  stop-color="rgba(255,255,255,.0)"/>
+    <stop offset="75%"  stop-color="rgba(0,0,0,.0)"/>
+    <stop offset="88%"  stop-color="rgba(255,255,255,.0)"/>
+    <stop offset="92%"  stop-color="rgba(255,255,255,.18)"/>
+    <stop offset="100%" stop-color="rgba(255,255,255,.0)"/>
+  </linearGradient>
+  <!-- 거품 그라디언트 -->
+  <linearGradient id="${p}F" x1="0" x2="1" y1="0" y2="0">
+    <stop offset="0%"   stop-color="rgba(255,255,255,1)"/>
+    <stop offset="50%"  stop-color="rgba(245,238,218,1)"/>
+    <stop offset="100%" stop-color="rgba(220,210,190,1)"/>
+  </linearGradient>
+  <clipPath id="${p}C"><path d="M5,9 L63,9 L56,112 L12,112 Z"/></clipPath>
+</defs>
+${shadow}
+<!-- 잔 외곽 (유리 느낌) -->
+<path d="M5,9 L63,9 L56,112 L12,112 Z" fill="rgba(255,220,150,.03)" stroke="rgba(255,210,100,.45)" stroke-width="1.5"/>
+<!-- 액체 -->
+<g clip-path="url(#${p}C)">
+  <rect x="0" y="0" width="68" height="112" fill="url(#${p}L)" style="${la}"/>
+  <!-- 유리 반사 오버레이 (액체 위에 겹침) -->
+  <rect x="0" y="0" width="68" height="112" fill="url(#${p}G)"/>
+  ${filled?`<circle cx="22" cy="60" r="2.2" fill="rgba(255,242,150,.6)" style="animation:bb 2.1s .3s infinite"/>
+<circle cx="37" cy="76" r="1.5" fill="rgba(255,232,120,.45)" style="animation:bb 2.7s 1.1s infinite"/>
+<circle cx="29" cy="50" r="1.2" fill="rgba(255,248,170,.5)" style="animation:bb 1.8s 1.9s infinite"/>`:``}
+</g>
+<!-- 잔 테두리 하이라이트 (왼쪽 엣지) -->
+<line x1="5" y1="9" x2="12" y2="112" stroke="rgba(255,240,180,.35)" stroke-width="2" stroke-linecap="round"/>
+<!-- 잔 테두리 하이라이트 (오른쪽 엣지) -->
+<line x1="63" y1="9" x2="56" y2="112" stroke="rgba(255,255,255,.08)" stroke-width="1.5" stroke-linecap="round"/>
+<!-- 잔 윗 테두리 -->
+<path d="M5,9 L63,9" stroke="rgba(255,230,130,.6)" stroke-width="2" fill="none"/>
+<!-- 입구 타원 -->
+<ellipse cx="34" cy="9" rx="29" ry="5" fill="rgba(255,220,120,.06)" stroke="rgba(255,210,100,.3)" stroke-width="1"/>
+<!-- 거품 -->
+<g style="${fa}">
+  <ellipse cx="34" cy="10" rx="29.5" ry="10" fill="url(#${p}F)"/>
+  <circle cx="16" cy="4"  r="7"   fill="rgba(255,255,255,.98)"/>
+  <circle cx="34" cy="1"  r="8.5" fill="white"/>
+  <circle cx="52" cy="4"  r="6.5" fill="rgba(255,255,255,.97)"/>
+  <circle cx="24" cy="-1" r="5.5" fill="rgba(255,255,255,.95)"/>
+  <circle cx="44" cy="-1" r="6"   fill="rgba(255,255,255,.96)"/>
+  <!-- 거품 표면 반짝임 -->
+  <ellipse cx="28" cy="5" rx="8" ry="2.5" fill="rgba(255,255,255,.3)"/>
+</g>
+</svg>`;
 }
 
-function rotate(shape) {
-  const rows = shape.length, cols = shape[0].length;
-  const r = Array.from({length: cols}, () => Array(rows).fill(0));
-  for (let i = 0; i < rows; i++)
-    for (let j = 0; j < cols; j++)
-      r[j][rows - 1 - i] = shape[i][j];
-  return r;
+function sojuSVG(uid,st){
+  const p=`s${uid.replace(/\W/g,'_')}`;
+  const filled=st==='full'||st==='cheering',anim=st==='filling';
+  const la=anim?'animation:fS .5s ease forwards':filled?'':`transform:translateY(74px)`;
+  const shadow=`<ellipse cx="20" cy="73" rx="14" ry="2.5" fill="rgba(0,0,0,.55)"/>`;
+  return`<svg width="40" height="78" viewBox="0 0 40 78" style="overflow:visible">
+<defs>
+  <linearGradient id="${p}L" x1="0" x2="1" y1="0" y2="0">
+    <stop offset="0%"   stop-color="rgba(230,250,255,.95)"/>
+    <stop offset="18%"  stop-color="rgba(210,242,255,.8)"/>
+    <stop offset="55%"  stop-color="rgba(175,228,250,.5)"/>
+    <stop offset="85%"  stop-color="rgba(140,210,240,.2)"/>
+    <stop offset="100%" stop-color="rgba(100,180,220,.05)"/>
+  </linearGradient>
+  <linearGradient id="${p}G" x1="0" x2="1" y1="0" y2="0">
+    <stop offset="0%"   stop-color="rgba(255,255,255,.0)"/>
+    <stop offset="7%"   stop-color="rgba(255,255,255,.0)"/>
+    <stop offset="8%"   stop-color="rgba(255,255,255,.62)"/>
+    <stop offset="16%"  stop-color="rgba(255,255,255,.14)"/>
+    <stop offset="26%"  stop-color="rgba(255,255,255,.0)"/>
+    <stop offset="80%"  stop-color="rgba(0,0,0,.0)"/>
+    <stop offset="90%"  stop-color="rgba(255,255,255,.15)"/>
+    <stop offset="100%" stop-color="rgba(255,255,255,.0)"/>
+  </linearGradient>
+  <clipPath id="${p}C"><path d="M3,7 L37,7 L33,68 L7,68 Z"/></clipPath>
+</defs>
+${shadow}
+<path d="M3,7 L37,7 L33,68 L7,68 Z" fill="rgba(200,240,255,.03)" stroke="rgba(180,225,255,.42)" stroke-width="1.5"/>
+<g clip-path="url(#${p}C)">
+  <rect x="0" y="0" width="40" height="68" fill="url(#${p}L)" style="${la}"/>
+  <rect x="0" y="0" width="40" height="68" fill="url(#${p}G)"/>
+</g>
+<line x1="3"  y1="7" x2="7"  y2="68" stroke="rgba(255,255,255,.32)" stroke-width="1.8" stroke-linecap="round"/>
+<line x1="37" y1="7" x2="33" y2="68" stroke="rgba(255,255,255,.07)" stroke-width="1" stroke-linecap="round"/>
+<path d="M3,7 L37,7" stroke="rgba(200,235,255,.55)" stroke-width="1.8" fill="none"/>
+<ellipse cx="20" cy="7" rx="17" ry="4" fill="rgba(200,240,255,.04)" stroke="rgba(180,225,255,.32)" stroke-width="1"/>
+</svg>`;
 }
 
-function valid(sh, x, y) {
-  for (let r = 0; r < sh.length; r++)
-    for (let c = 0; c < sh[r].length; c++)
-      if (sh[r][c]) {
-        const nx = x + c, ny = y + r;
-        if (nx < 0 || nx >= COLS || ny >= ROWS) return false;
-        if (ny >= 0 && board[ny][nx]) return false;
-      }
-  return true;
+function somacSVG(uid,st){
+  const p=`m${uid.replace(/\W/g,'_')}`;
+  const filled=st==='full'||st==='cheering',anim=st==='filling';
+  const liqCol=filled?'#c07808':'#e0a018';
+  const la=anim?'animation:fB .8s ease forwards':filled?'':`transform:translateY(115px)`;
+  const fa=anim?'opacity:0;animation:fi .35s .7s forwards':filled?'':'opacity:0';
+  const sj=anim?'transform-origin:10px 26px;animation:sjt .6s .9s ease-in forwards'
+              :filled?'transform-origin:10px 26px;transform:rotate(-108deg)':'';
+  const shadow=`<ellipse cx="34" cy="118" rx="25" ry="3.5" fill="rgba(0,0,0,.55)"/>`;
+  return`<svg width="88" height="124" viewBox="0 0 88 124" style="overflow:visible">
+<defs>
+  <linearGradient id="${p}L" x1="0" x2="1" y1="0" y2="0">
+    <stop offset="0%"   stop-color="#ffe850"/>
+    <stop offset="18%"  stop-color="${liqCol}"/>
+    <stop offset="55%"  stop-color="#804808"/>
+    <stop offset="85%"  stop-color="#3a1c02"/>
+    <stop offset="100%" stop-color="#180a00"/>
+  </linearGradient>
+  <linearGradient id="${p}G" x1="0" x2="1" y1="0" y2="0">
+    <stop offset="0%"   stop-color="rgba(255,255,255,.0)"/>
+    <stop offset="6%"   stop-color="rgba(255,255,255,.0)"/>
+    <stop offset="7%"   stop-color="rgba(255,255,255,.48)"/>
+    <stop offset="13%"  stop-color="rgba(255,255,255,.11)"/>
+    <stop offset="22%"  stop-color="rgba(255,255,255,.0)"/>
+    <stop offset="78%"  stop-color="rgba(0,0,0,.0)"/>
+    <stop offset="91%"  stop-color="rgba(255,255,255,.16)"/>
+    <stop offset="100%" stop-color="rgba(255,255,255,.0)"/>
+  </linearGradient>
+  <linearGradient id="${p}F" x1="0" x2="1" y1="0" y2="0">
+    <stop offset="0%"   stop-color="rgba(255,255,255,1)"/>
+    <stop offset="55%"  stop-color="rgba(245,238,215,1)"/>
+    <stop offset="100%" stop-color="rgba(215,205,185,1)"/>
+  </linearGradient>
+  <!-- 소주잔 액체 -->
+  <linearGradient id="${p}SL" x1="0" x2="1" y1="0" y2="0">
+    <stop offset="0%"   stop-color="rgba(230,250,255,.92)"/>
+    <stop offset="100%" stop-color="rgba(150,215,245,.18)"/>
+  </linearGradient>
+  <clipPath id="${p}C"><path d="M5,9 L62,9 L54,112 L13,112 Z"/></clipPath>
+</defs>
+${shadow}
+<path d="M5,9 L62,9 L54,112 L13,112 Z" fill="rgba(255,220,150,.03)" stroke="rgba(255,210,100,.43)" stroke-width="1.5"/>
+<g clip-path="url(#${p}C)">
+  <rect x="0" y="0" width="67" height="112" fill="url(#${p}L)" style="${la}"/>
+  <rect x="0" y="0" width="67" height="112" fill="url(#${p}G)"/>
+  ${filled?`<circle cx="24" cy="60" r="2"   fill="rgba(255,235,110,.55)" style="animation:bb 2s .4s infinite"/>
+<circle cx="38" cy="78" r="1.4" fill="rgba(255,225,90,.4)"  style="animation:bb 2.5s 1.3s infinite"/>`:``}
+</g>
+<line x1="5"  y1="9"  x2="13" y2="112" stroke="rgba(255,240,170,.33)" stroke-width="2" stroke-linecap="round"/>
+<line x1="62" y1="9"  x2="54" y2="112" stroke="rgba(255,255,255,.07)" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M5,9 L62,9" stroke="rgba(255,230,120,.58)" stroke-width="2" fill="none"/>
+<ellipse cx="34" cy="9" rx="29" ry="5" fill="rgba(255,220,120,.04)" stroke="rgba(255,210,100,.28)" stroke-width="1"/>
+<g style="${fa}">
+  <ellipse cx="34" cy="10" rx="29.5" ry="10" fill="url(#${p}F)"/>
+  <circle cx="17" cy="4"  r="6.5"  fill="rgba(255,255,255,.98)"/>
+  <circle cx="34" cy="1"  r="8"    fill="white"/>
+  <circle cx="51" cy="4"  r="6"    fill="rgba(255,255,255,.97)"/>
+  <circle cx="25" cy="-1" r="5"    fill="rgba(255,255,255,.95)"/>
+  <circle cx="44" cy="-1" r="5.5"  fill="rgba(255,255,255,.96)"/>
+  <ellipse cx="29" cy="5" rx="7" ry="2.5" fill="rgba(255,255,255,.28)"/>
+</g>
+<!-- 소주잔 -->
+<g transform="translate(63,8)">
+  <g style="${sj}">
+    <path d="M1,0 L18,0 L16,26 L4,26 Z" fill="url(#${p}SL)" stroke="rgba(180,230,255,.42)" stroke-width="1"/>
+    <!-- 소주잔 하이라이트 -->
+    <line x1="3" y1="2" x2="4" y2="22" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/>
+    <ellipse cx="10" cy="0" rx="9" ry="2.2" fill="none" stroke="rgba(180,230,255,.35)" stroke-width=".8"/>
+  </g>
+</g>
+</svg>`;
 }
 
-function place() {
-  for (let r = 0; r < piece.shape.length; r++)
-    for (let c = 0; c < piece.shape[r].length; c++)
-      if (piece.shape[r][c]) {
-        const ny = piece.y + r;
-        if (ny < 0) { endGame(); return; }
-        board[ny][piece.x + c] = piece.color;
-      }
-  clearLines();
-  piece = next;
-  next = randomPiece();
-  if (!valid(piece.shape, piece.x, piece.y)) { endGame(); return; }
-  drawNext();
+function emptyGlass(drink){
+  if(drink==='beer')return beerSVG('e'+Math.random().toString(36).slice(2,5),'empty');
+  if(drink==='soju')return sojuSVG('e'+Math.random().toString(36).slice(2,5),'empty');
+  if(drink==='somac')return somacSVG('e'+Math.random().toString(36).slice(2,5),'empty');
+  return`<svg width="50" height="90" viewBox="0 0 50 90">
+<path d="M5,10 L45,10 L40,80 L10,80 Z" fill="rgba(255,180,60,.03)" stroke="rgba(200,150,50,.22)" stroke-width="1.5"/>
+<text x="25" y="50" text-anchor="middle" fill="rgba(180,130,40,.2)" font-size="20" font-family="sans-serif">?</text></svg>`;
 }
 
-function clearLines() {
-  let cleared = 0;
-  for (let r = ROWS - 1; r >= 0; r--) {
-    if (board[r].every(c => c !== 0)) {
-      board.splice(r, 1);
-      board.unshift(Array(COLS).fill(0));
-      cleared++; r++;
+function renderGlass(u,uid){
+  const st=u.state;
+  if(!u.drink||st==='empty'||st==='selecting')return emptyGlass(u.drink);
+  if(u.drink==='beer')return beerSVG(uid,st);
+  if(u.drink==='soju')return sojuSVG(uid,st);
+  return somacSVG(uid,st);
+}
+
+// ── 오디오 ─────────────────────────────────────────────────────
+let _ac=null;
+function getAC(){
+  try{if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();return _ac}catch{return null}
+}
+function clinkSound(){
+  const ac=getAC();if(!ac)return;
+  try{
+    const t=ac.currentTime;
+    [[2850,3420,5700,6840],[2650,3180,5300,6360]].forEach((freqs,gi)=>{
+      const delay=gi*.009;
+      freqs.forEach((f,hi)=>{
+        const o=ac.createOscillator(),g=ac.createGain();
+        o.connect(g);g.connect(ac.destination);
+        o.frequency.value=f;o.type='sine';
+        g.gain.setValueAtTime(0,t+delay);
+        g.gain.linearRampToValueAtTime(.11-.025*hi,t+delay+.003);
+        g.gain.exponentialRampToValueAtTime(.0001,t+delay+1.2);
+        o.start(t+delay);o.stop(t+delay+1.2);
+      });
+    });
+    const buf=ac.createBuffer(1,Math.floor(ac.sampleRate*.018),ac.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);
+    const s=ac.createBufferSource(),ng=ac.createGain();
+    ng.gain.value=.4;s.buffer=buf;s.connect(ng);ng.connect(ac.destination);s.start(t);
+  }catch{}
+}
+function pourSound(drink){
+  const ac=getAC();if(!ac)return;
+  try{
+    const t=ac.currentTime;
+    const isSoju=drink==='soju';
+    const dur=isSoju?1.6:2.2,freq=isSoju?1800:480,Q=isSoju?3:1.5,vol=isSoju?.07:.13;
+    const buf=ac.createBuffer(1,Math.floor(ac.sampleRate*dur),ac.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++){const env=Math.min(1,i/(ac.sampleRate*.2))*Math.max(0,1-i/(ac.sampleRate*(dur-.2)));d[i]=(Math.random()*2-1)*env;}
+    const src=ac.createBufferSource(),bq=ac.createBiquadFilter(),gn=ac.createGain();
+    bq.type='bandpass';bq.frequency.value=freq;bq.Q.value=Q;gn.gain.value=vol;
+    src.buffer=buf;src.connect(bq);bq.connect(gn);gn.connect(ac.destination);src.start(t);
+    if(!isSoju){
+      const buf2=ac.createBuffer(1,Math.floor(ac.sampleRate*1.0),ac.sampleRate);
+      const d2=buf2.getChannelData(0);
+      for(let i=0;i<d2.length;i++){const e=Math.min(1,i/(ac.sampleRate*.3))*Math.max(0,1-i/(ac.sampleRate*.7));d2[i]=(Math.random()*2-1)*e;}
+      const src2=ac.createBufferSource(),bq2=ac.createBiquadFilter(),g2=ac.createGain();
+      bq2.type='highpass';bq2.frequency.value=3500;g2.gain.value=.04;
+      src2.buffer=buf2;src2.connect(bq2);bq2.connect(g2);g2.connect(ac.destination);src2.start(t+.15);
     }
-  }
-  if (cleared) {
-    const pts = [0, 100, 300, 500, 800][cleared] * level;
-    score += pts;
-    lines += cleared;
-    level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(100, 1000 - (level - 1) * 80);
-    document.getElementById('score').textContent = score;
-    document.getElementById('level').textContent = level;
-    document.getElementById('lines').textContent = lines;
-  }
+  }catch{}
 }
 
-function drop() {
-  if (!valid(piece.shape, piece.x, piece.y + 1)) place();
-  else piece.y++;
-}
+// ── MQTT 멀티플레이어 ───────────────────────────────────────────
+const BROKER='wss://broker.hivemq.com:8884/mqtt';
+function tp(sub){return `gb25/${myRoom}/${sub}`}
 
-function hardDrop() {
-  while (valid(piece.shape, piece.x, piece.y + 1)) piece.y++;
-  place();
-}
-
-function drawCell(c, x, y, sz, context) {
-  context.fillStyle = c;
-  context.fillRect(x * sz + 1, y * sz + 1, sz - 2, sz - 2);
-  context.fillStyle = 'rgba(255,255,255,0.15)';
-  context.fillRect(x * sz + 1, y * sz + 1, sz - 2, 3);
-}
-
-function ghostY() {
-  let gy = piece.y;
-  while (valid(piece.shape, piece.x, gy + 1)) gy++;
-  return gy;
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  for (let r = 0; r < ROWS; r++)
-    for (let c = 0; c < COLS; c++)
-      if (board[r][c]) drawCell(board[r][c], c, r, SZ, ctx);
-
-  if (piece && gameRunning) {
-    const gy = ghostY();
-    for (let r = 0; r < piece.shape.length; r++)
-      for (let c = 0; c < piece.shape[r].length; c++)
-        if (piece.shape[r][c] && gy !== piece.y) {
-          ctx.fillStyle = 'rgba(200,200,200,0.2)';
-          ctx.fillRect((piece.x + c) * SZ + 1, (gy + r) * SZ + 1, SZ - 2, SZ - 2);
+function connectMQTT(onReady){
+  mqttClient=mqtt.connect(BROKER,{
+    clientId:'gn_'+myId+'_'+Date.now().toString(36),
+    clean:true,keepalive:20,reconnectPeriod:4000,connectTimeout:10000
+  });
+  let ready=false;
+  mqttClient.on('connect',()=>{
+    mqttClient.subscribe(tp('u/+'));       // 모든 유저 상태
+    mqttClient.subscribe(tp('cheer'));      // 건배 이벤트
+    mqttClient.subscribe(tp('fill/'+myId)); // 내 잔 채우기 요청
+    if(!ready){ready=true;if(onReady)onReady();}
+    if(heartbeatTimer)clearInterval(heartbeatTimer);
+    heartbeatTimer=setInterval(publishMe,12000);
+    publishMe();
+  });
+  mqttClient.on('message',(t,payload)=>{
+    const str=payload.toString();
+    // 건배 이벤트
+    if(t===tp('cheer')){
+      if(!str)return;
+      try{
+        const msg=JSON.parse(str);
+        if(msg.ts<=lastCheerTs)return;
+        lastCheerTs=msg.ts;
+        cheerCount=msg.cnt;
+        updateHcnt();
+        if(msg.from!==myId&&!isAnim){
+          isAnim=true;
+          animCheer(cheerCount);
+          setTimeout(()=>{
+            if(myState==='full'){myState='empty';publishMe();}
+            isAnim=false;barSig='';refreshBar();
+          },3200);
         }
-    for (let r = 0; r < piece.shape.length; r++)
-      for (let c = 0; c < piece.shape[r].length; c++)
-        if (piece.shape[r][c]) drawCell(piece.color, piece.x + c, piece.y + r, SZ, ctx);
-  }
-
-  if (gameOver) {
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(0, canvas.height / 2 - 40, canvas.width, 80);
-    ctx.fillStyle = '#fff';
-    ctx.font = '500 18px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('게임 오버', canvas.width / 2, canvas.height / 2 - 10);
-    ctx.font = '13px sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.fillText('점수: ' + score, canvas.width / 2, canvas.height / 2 + 16);
-  }
-}
-
-function drawNext() {
-  nctx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
-  nctx.fillStyle = 'rgba(0,0,0,0.3)';
-  nctx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
-  if (!next) return;
-  const sz = 16;
-  const ox = Math.floor((nextCanvas.width - next.shape[0].length * sz) / 2);
-  const oy = Math.floor((nextCanvas.height - next.shape.length * sz) / 2);
-  for (let r = 0; r < next.shape.length; r++)
-    for (let c = 0; c < next.shape[r].length; c++)
-      if (next.shape[r][c]) {
-        nctx.fillStyle = next.color;
-        nctx.fillRect(ox + c * sz + 1, oy + r * sz + 1, sz - 2, sz - 2);
+      }catch(e){}
+      return;
+    }
+    // 내 잔 채우기 요청 (다른 사람이 채워줌)
+    if(t===tp('fill/'+myId)){
+      if(myState==='empty'&&!fillTimer){
+        pourSound(myDrink);
+        myState='filling';
+        startFillTimer();
+        publishMe();
+        barSig='';refreshBar();
       }
+      return;
+    }
+    // 다른 유저 상태 업데이트
+    const uid=t.split('/').pop();
+    if(uid===myId)return; // 내 것은 무시
+    if(!str){delete roomUsers[uid];barSig='';refreshBar();return;}
+    try{
+      const data=JSON.parse(str);
+      roomUsers[uid]={...data,ts:Date.now()};
+      barSig='';
+      if(['empty','filling','full','cheering'].includes(myState))refreshBar();
+    }catch(e){}
+  });
+  mqttClient.on('error',e=>console.warn('MQTT:',e));
+  // 연결 중 상태 표시
+  const dm=G('dm');if(dm)dm.textContent='서버 연결 중...';
 }
 
-let lastTime = 0;
-function loop(ts) {
-  if (!gameRunning) return;
-  if (ts - lastTime > dropInterval) { drop(); lastTime = ts; }
-  draw();
-  animId = requestAnimationFrame(loop);
+function publishMe(){
+  if(!mqttClient?.connected||!myRoom)return;
+  const payload=JSON.stringify({drink:myDrink,state:myState,nick:myNick});
+  mqttClient.publish(tp(`u/${myId}`),payload,{retain:true,qos:0});
+}
+function publishCheer(cnt){
+  if(!mqttClient?.connected||!myRoom)return;
+  mqttClient.publish(tp('cheer'),JSON.stringify({from:myId,ts:Date.now(),cnt}),{retain:false,qos:0});
+}
+function leaveRoom(){
+  if(!mqttClient||!myRoom)return;
+  if(mqttClient.connected)mqttClient.publish(tp(`u/${myId}`),'',{retain:true,qos:0});
+  if(heartbeatTimer){clearInterval(heartbeatTimer);heartbeatTimer=null;}
 }
 
-function startGame() {
-  if (animId) cancelAnimationFrame(animId);
-  board = newBoard();
-  score = 0; level = 1; lines = 0;
-  dropInterval = 1000;
-  gameRunning = true; gameOver = false;
-  document.getElementById('score').textContent = 0;
-  document.getElementById('level').textContent = 1;
-  document.getElementById('lines').textContent = 0;
-  document.getElementById('msg').textContent = '진행 중...';
-  document.getElementById('btn').textContent = '재시작';
-  piece = randomPiece();
-  next = randomPiece();
-  drawNext();
-  lastTime = 0;
-  animId = requestAnimationFrame(loop);
-}
-
-function endGame() {
-  gameRunning = false; gameOver = true;
-  draw();
-  document.getElementById('msg').textContent = '다시 해볼까요?';
-  document.getElementById('btn').textContent = '다시 시작';
-}
-
-document.getElementById('btn').addEventListener('click', startGame);
-
-document.addEventListener('keydown', e => {
-  if (!gameRunning) return;
-  if (e.key === 'ArrowLeft') { if (valid(piece.shape, piece.x - 1, piece.y)) piece.x--; }
-  else if (e.key === 'ArrowRight') { if (valid(piece.shape, piece.x + 1, piece.y)) piece.x++; }
-  else if (e.key === 'ArrowDown') { drop(); lastTime = performance.now(); }
-  else if (e.key === 'ArrowUp') {
-    const r = rotate(piece.shape);
-    if (valid(r, piece.x, piece.y)) piece.shape = r;
-    else if (valid(r, piece.x - 1, piece.y)) { piece.shape = r; piece.x--; }
-    else if (valid(r, piece.x + 1, piece.y)) { piece.shape = r; piece.x++; }
+// ── 유저 목록 ───────────────────────────────────────────────────
+function getActUsers(){
+  const now=Date.now();
+  const list=[];
+  // 다른 유저들 (MQTT, 60초 타임아웃)
+  Object.entries(roomUsers).forEach(([uid,u])=>{
+    if(now-u.ts<60000)list.push({...u,id:uid});
+  });
+  // 나
+  if(myState!=='lobby'&&myState!=='selecting'){
+    list.push({id:myId,drink:myDrink,state:myState,ts:now});
   }
-  else if (e.key === ' ') { e.preventDefault(); hardDrop(); }
-});
+  // uid 기준 정렬 (안정적인 순서)
+  list.sort((a,b)=>a.id<b.id?-1:1);
+  return list;
+}
+function updateHcnt(){
+  const el=G('hcnt');if(el)el.textContent=`🥂 ${cheerCount}`;
+}
+function refreshBar(){
+  const row=G('gr'),msg=G('bm'),cnt=G('hn');if(!row)return;
+  const act=getActUsers();
+  cnt.textContent=act.length+'명';
+  updateHcnt();
+  const allFull=act.length>0&&act.every(u=>u.state==='full'||u.state==='cheering');
+  const sig=act.map(u=>`${u.id}_${u.drink}_${u.state}`).join('|');
+  if(sig!==barSig){barSig=sig;row.innerHTML=act.map((u,i)=>glassEl(u,i,allFull)).join('')}
+  if(allFull&&act.length>1){msg.style.color='#c05010';msg.textContent='모두 준비됐어요! 내 잔을 클릭하세요 👆'}
+  else if(myState==='full'){msg.style.color='#c05010';msg.textContent='내 잔이 찼어요! 클릭해서 건배 🥂'}
+  else{
+    msg.style.color='#a07040';
+    const nE=act.filter(u=>u.state==='empty').length,nF=act.filter(u=>u.state==='filling').length;
+    msg.textContent=nE>0?`빈 잔 ${nE}개 — 채워야 건배! 👇`:nF>0?'채우는 중... 🍺':'코드를 친구에게 공유하세요!';
+  }
+}
 
-let touchStartX = 0, touchStartY = 0;
-canvas.addEventListener('touchstart', e => {
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
-  e.preventDefault();
-}, {passive: false});
-canvas.addEventListener('touchend', e => {
-  if (!gameRunning) return;
-  const dx = e.changedTouches[0].clientX - touchStartX;
-  const dy = e.changedTouches[0].clientY - touchStartY;
-  if (Math.abs(dx) > Math.abs(dy)) {
-    if (dx > 20 && valid(piece.shape, piece.x + 1, piece.y)) piece.x++;
-    else if (dx < -20 && valid(piece.shape, piece.x - 1, piece.y)) piece.x--;
-  } else {
-    if (dy > 20) hardDrop();
-    else if (dy < -20) {
-      const r = rotate(piece.shape);
-      if (valid(r, piece.x, piece.y)) piece.shape = r;
-      else if (valid(r, piece.x - 1, piece.y)) { piece.shape = r; piece.x--; }
-      else if (valid(r, piece.x + 1, piece.y)) { piece.shape = r; piece.x++; }
+
+// ── 화면 빌더 ───────────────────────────────────────────────────
+function buildLobby(){
+  G('sl').innerHTML=`
+<div style="font-size:52px;margin-bottom:8px;filter:drop-shadow(0 0 12px rgba(255,160,30,.45))">🍺</div>
+<div style="font-family:'Bebas Neue',sans-serif;font-size:38px;letter-spacing:5px;color:#c05010;margin-bottom:18px">온라인 건배</div>
+<input class="ri" id="ni" maxlength="8" placeholder="닉네임"
+  style="letter-spacing:2px;font-size:17px;margin-bottom:8px"
+  onkeydown="if(event.key==='Enter')G('ri').focus()"/>
+<input class="ri" id="ri" maxlength="4" placeholder="방 코드"
+  oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"
+  onkeydown="if(event.key==='Enter')joinRoom()"/>
+<button class="btn" onclick="joinRoom()">입장하기</button>
+<button class="btng" onclick="makeRoom()">새 방 만들기</button>
+<div id="lm" style="font-size:13px;color:#d06030;margin-top:10px;min-height:18px;text-align:center"></div>`;
+}
+
+function buildDrink(cur){
+  const ds=[{id:'beer',svg:beerSVG('pr0','empty')},{id:'soju',svg:sojuSVG('pr1','empty')},{id:'somac',svg:somacSVG('pr2','empty')}];
+  const desc={beer:'시원한 생맥주',soju:'깔끔한 소주',somac:'황금비율'};
+  G('sd').innerHTML=`
+<div style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:3px;color:#c05010;margin-bottom:6px">${cur?'다음 잔은?':'무엇을 마실까요?'}</div>
+<div style="font-size:12px;color:#a07040">${cur?`현재: <span style="color:#d06010">${NM[cur]}</span> — 바꿀 수 있어요`:'오늘의 주종을 선택하세요'}</div>
+<div class="dg">${ds.map(d=>`<div class="dc${cur===d.id?' sel':''}" onclick="chooseDrink('${d.id}')">
+${d.svg}
+<div style="font-size:14px;font-weight:900;color:#c05010">${NM[d.id]}</div>
+<div style="font-size:11px;color:rgba(160,120,50,.7)">${desc[d.id]}</div>
+${cur===d.id?`<div style="font-size:10px;color:#d06010;font-weight:700">현재</div>`:''}
+</div>`).join('')}</div>
+${cur?`<button class="btng" style="margin-top:18px;width:auto;padding:8px 20px" onclick="cancelChange()">← 돌아가기</button>`:''}
+<div id="dm" style="font-size:12px;color:rgba(160,120,50,.65);margin-top:14px;animation:pls 2s infinite"></div>`;
+}
+
+
+// ── 방 입장 ─────────────────────────────────────────────────────
+async function makeRoom(){
+  const code=(Math.random().toString(36).slice(2,6)).toUpperCase();
+  const ri=G('ri');if(ri)ri.value=code;
+  joinRoom();
+}
+async function joinRoom(){
+  const ri=G('ri'),ni=G('ni');
+  const code=(ri?.value||'').trim().toUpperCase();
+  const nick=(ni?.value||'').trim().slice(0,8)||'익명';
+  if(code.length<2){const m=G('lm');if(m)m.textContent='방 코드를 입력해주세요';return}
+  myNick=nick;myRoom=code;myState='selecting';
+  G('hc').textContent='방: '+myRoom;
+  buildDrink(null);show('sd');
+  connectMQTT(()=>{
+    // 연결 완료 후 친구 수 업데이트
+    const el=G('dm');
+    if(el)el.textContent='방에 연결됐어요! 코드를 친구에게 공유하세요 🍺';
+  });
+}
+async function chooseDrink(d){
+  myDrink=d;myState='empty';
+  publishMe();
+  show('sb');barSig='';refreshBar();
+}
+function changeDrink(){
+  if(fillTimer){clearTimeout(fillTimer);fillTimer=null}
+  myState='selecting';publishMe();
+  buildDrink(myDrink);show('sd');
+}
+function cancelChange(){
+  if(myDrink){myState='empty';publishMe();show('sb');barSig='';refreshBar();}
+  else{buildDrink(null);show('sd');}
+}
+
+// ── 채우기 ──────────────────────────────────────────────────────
+function startFillTimer(){
+  if(fillTimer)return;
+  if(myDrink==='somac')setTimeout(()=>pourSound('soju'),900);
+  fillTimer=setTimeout(()=>{
+    fillTimer=null;myState='full';
+    publishMe();barSig='';refreshBar();
+  },FDUR[myDrink]||1200);
+}
+function fillGlass(uid){
+  if(uid===myId){
+    if(myState!=='empty')return;
+    pourSound(myDrink);
+    myState='filling';
+    startFillTimer();
+    publishMe();
+    barSig='';refreshBar();
+  }else{
+    // 다른 사람 잔 채우기 — fill 토픽으로 요청 전송
+    if(mqttClient?.connected){
+      mqttClient.publish(tp('fill/'+uid),myId,{retain:false,qos:0});
+      // 낙관적 업데이트 (로컬 즉시 반영)
+      if(roomUsers[uid]&&roomUsers[uid].state==='empty'){
+        roomUsers[uid]={...roomUsers[uid],state:'filling'};
+        barSig='';refreshBar();
+      }
     }
   }
-  e.preventDefault();
-}, {passive: false});
-</script>
+}
 
+
+// ── 바 렌더링 ────────────────────────────────────────────────────
+function glassEl(u,idx,allFull){
+  const me=u.id===myId;
+  const isEmpty=u.state==='empty',isFull=u.state==='full',isFilling=u.state==='filling';
+  const canFill=isEmpty,canCheer=me&&isFull,clickable=canFill||canCheer;
+  let hint='';
+  if(canCheer&&allFull)hint='건배! 🥂';
+  else if(canCheer)hint='혼자서 건배! 🥂';
+  else if(canFill&&me)hint='클릭해서 채우기 🍺';
+  else if(canFill&&!me)hint='채워주기 🫶';
+  const fn=canFill?`fillGlass('${u.id}')`:canCheer?`doCheer()`:'';
+  const sub=isFilling?(me?'채우는 중...':'채우는 중...'):'';
+  return`<div class="gs${clickable?' tap':''}${me&&isFull?' rg':''}"${fn?` onclick="${fn}"`:``}>
+${hint?`<div class="gh">${hint}</div>`:''}
+${renderGlass(u,'g'+idx)}
+<div class="gnm${me?' me':''}">${me?myNick:(u.nick||'친구')}</div>
+${sub?`<div class="gsub">${sub}</div>`:''}
+</div>`;
+}
+async function updateBar(users,gd){
+  const row=G('gr'),msg=G('bm'),cnt=G('hn'),hcnt=G('hcnt');if(!row)return;
+  const now=Date.now();
+  let act=(Array.isArray(users)?users:[]).filter(u=>now-u.ts<22000).sort((a,b)=>a.slot-b.slot);
+  // 내 슬롯은 항상 로컬 상태로 덮어씀 (storage 지연 무관하게 즉시 반영)
+  if(myState!=='lobby'&&myState!=='selecting'){
+    const myIdx=act.findIndex(u=>u.id===myId);
+    const myEntry={id:myId,slot:mySlot>=0?mySlot:0,drink:myDrink,state:myState,ts:now};
+    if(myIdx>=0)act[myIdx]=myEntry;
+    else{act.push(myEntry);act.sort((a,b)=>a.slot-b.slot);}
+  }
+  cnt.textContent=act.length+'명';
+  if(gd&&hcnt)hcnt.textContent=`🥂 ${gd.cnt||0}`;
+  const allFull=act.length>0&&act.every(u=>u.state==='full'||u.state==='cheering');
+  const sig=act.map(u=>`${u.id}_${u.drink}_${u.state}`).join('|');
+  if(sig!==barSig){barSig=sig;row.innerHTML=act.map((u,i)=>glassEl(u,i,allFull)).join('')}
+  if(allFull&&act.length>1){msg.style.color='#c05010';msg.textContent='모두 준비됐어요! 내 잔을 클릭하세요 👆'}
+  else if(myState==='full'){msg.style.color='#c05010';msg.textContent='내 잔이 찼어요! 클릭해서 건배 🥂'}
+  else{msg.style.color='#a07040';
+    const nE=act.filter(u=>u.state==='empty').length,nF=act.filter(u=>u.state==='filling').length;
+    msg.textContent=nE>0?`빈 잔 ${nE}개 — 채워야 건배! 👇`:nF>0?'채우는 중... 🍺':'코드를 친구에게 공유하세요!';}
+}
+
+
+// ── 건배 ────────────────────────────────────────────────────────
+function doCheer(){
+  if(isAnim)return;
+  clinkSound();
+  isAnim=true;myState='cheering';
+  cheerCount++;
+  publishMe();
+  publishCheer(cheerCount);
+  animCheer(cheerCount);
+  setTimeout(()=>{
+    myState='empty';publishMe();
+    isAnim=false;barSig='';refreshBar();
+  },3200);
+}
+
+function animCheer(nc){
+  document.querySelectorAll('.gs').forEach(el=>{el.classList.add('shake');setTimeout(()=>el.classList.remove('shake'),550)});
+  const ov=G('cov');ov.classList.add('on');setTimeout(()=>ov.classList.remove('on'),2500);
+  const hcnt=G('hcnt');
+  if(hcnt){hcnt.textContent=`🥂 ${nc}`;hcnt.style.animation='none';requestAnimationFrame(()=>{hcnt.style.animation='cntpop .45s ease'});setTimeout(()=>hcnt.style.animation='',600);}
+  const app=G('gba');
+  ['🎊','✨','⭐','💫','🍺','🥂','🎉','🌟','🎆','🍻','🪅','🎵'].forEach(e=>{
+    const p=document.createElement('div');p.textContent=e;
+    const a=Math.random()*Math.PI*2,dist=80+Math.random()*130;
+    p.style.cssText=`position:absolute;left:50%;top:45%;font-size:${13+Math.random()*15}px;pointer-events:none;z-index:20;--px:${Math.cos(a)*dist}px;--py:${Math.sin(a)*dist}px;animation:pf ${.65+Math.random()*.6}s ${Math.random()*.28}s forwards`;
+    app.appendChild(p);setTimeout(()=>p.remove(),1400);
+  });
+}
+function cpC(btn){navigator.clipboard.writeText(myRoom||'').then(()=>{const o=btn.textContent;btn.textContent='복사됨!';setTimeout(()=>btn.textContent=o,2000)}).catch(()=>{});}
+
+
+window.addEventListener('pagehide',leaveRoom);
+window.addEventListener('beforeunload',leaveRoom);
+buildLobby();
+</script>
 </body>
 </html>
