@@ -55,7 +55,7 @@
   /* TOP BAR */
   .topbar {
     display: grid;
-    grid-template-columns: 1.6fr 1fr 0.8fr 40px;
+    grid-template-columns: 1.5fr 0.9fr 0.7fr 38px 38px;
     gap: 5px;
     flex-shrink: 0;
   }
@@ -425,6 +425,7 @@
       <div class="stat-label">LV</div>
       <div class="stat-value" id="level">1</div>
     </div>
+    <button class="icon-btn" id="soundBtn" aria-label="소리">♪</button>
     <button class="icon-btn" id="pauseBtn" aria-label="일시정지">II</button>
   </div>
 
@@ -691,6 +692,260 @@
 
   function buzz(ms = 8) { if (navigator.vibrate) navigator.vibrate(ms); }
 
+  // ========================================================================
+  // AUDIO ENGINE — Web Audio API, fully synthesized (no external files).
+  // BGM is "Korobeiniki", a Russian folk song from 1861 (public domain),
+  // synthesized here from note frequencies (not a copyrighted recording).
+  // ========================================================================
+  const Audio = (() => {
+    let ctx = null;
+    let master = null, sfxGain = null, musicGain = null;
+    let noiseBuffer = null;
+    let enabled = true;
+    let unlocked = false;
+
+    // BGM scheduler state
+    let bgmPlaying = false;
+    let bgmTimer = null;
+    let nextNoteTime = 0;
+    let stepIndex = 0;
+    const LOOKAHEAD = 0.1;       // sec, schedule window
+    const TICK = 25;             // ms, scheduler interval
+    let tempo = 144;            // BPM (will speed up with level)
+
+    function noteFreq(n) {
+      // n like "E5", "A4", "C#5", "R" (rest)
+      if (n === 'R') return 0;
+      const NOTES = { C:0, 'C#':1, D:2, 'D#':3, E:4, F:5, 'F#':6, G:7, 'G#':8, A:9, 'A#':10, B:11 };
+      const m = n.match(/^([A-G]#?)(\d)$/);
+      if (!m) return 0;
+      const semis = NOTES[m[1]] + (parseInt(m[2]) - 4) * 12;
+      return 440 * Math.pow(2, (semis - 9) / 12); // A4 = 440 (A4 is semitone 9 in octave 4)
+    }
+
+    // Korobeiniki main theme — [note, beats]. Faithful folk melody.
+    const MELODY = [
+      ['E5',1],['B4',0.5],['C5',0.5],['D5',1],['C5',0.5],['B4',0.5],
+      ['A4',1],['A4',0.5],['C5',0.5],['E5',1],['D5',0.5],['C5',0.5],
+      ['B4',1.5],['C5',0.5],['D5',1],['E5',1],
+      ['C5',1],['A4',1],['A4',1],['R',1],
+      ['R',0.5],['D5',1],['F5',0.5],['A5',1],['G5',0.5],['F5',0.5],
+      ['E5',1.5],['C5',0.5],['E5',1],['D5',0.5],['C5',0.5],
+      ['B4',1],['B4',0.5],['C5',0.5],['D5',1],['E5',1],
+      ['C5',1],['A4',1],['A4',1],['R',1],
+      // Lower section
+      ['E5',2],['C5',2],
+      ['D5',2],['B4',2],
+      ['C5',2],['A4',2],
+      ['G#4',2],['B4',1],['R',1],
+      ['E5',2],['C5',2],
+      ['D5',2],['B4',2],
+      ['C5',1],['E5',1],['A5',2],
+      ['G#5',2],['R',2],
+    ];
+    // Simple bass line (one note per 2 beats), root movement
+    const BASS = [
+      'E2','A2','E2','A2','E2','A2','E2','A2',
+      'D2','D2','E2','A2','D2','D2','E2','A2',
+      'A2','A2','G2','G2','C3','C3','E2','E2',
+      'A2','A2','G2','G2','C3','C3','E2','E2',
+      'A2','A2','G2','G2','A2','A2','E2','E2',
+    ];
+
+    function ensureCtx() {
+      if (ctx) return ctx;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) { enabled = false; return null; }
+      ctx = new AC();
+      master = ctx.createGain();
+      master.gain.value = 1.0;
+      const limiter = ctx.createDynamicsCompressor();
+      limiter.threshold.value = -3;
+      limiter.knee.value = 6;
+      limiter.ratio.value = 12;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.1;
+      master.connect(limiter);
+      limiter.connect(ctx.destination);
+      sfxGain = ctx.createGain();
+      sfxGain.gain.value = 1.3;
+      sfxGain.connect(master);
+      musicGain = ctx.createGain();
+      musicGain.gain.value = 0.1;
+      musicGain.connect(master);
+      // white noise buffer for percussion
+      const len = ctx.sampleRate * 0.5;
+      noiseBuffer = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      return ctx;
+    }
+
+    function unlock() {
+      if (unlocked) return;
+      const c = ensureCtx();
+      if (!c) return;
+      if (c.state === 'suspended') c.resume();
+      unlocked = true;
+    }
+
+    // ---- SFX primitives ----
+    function tone(freq, t0, dur, type = 'square', vol = 0.5, glideTo = null) {
+      if (!enabled || !ctx || freq <= 0) return;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t0);
+      if (glideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(20, glideTo), t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(g); g.connect(sfxGain);
+      osc.start(t0); osc.stop(t0 + dur + 0.02);
+    }
+
+    function noise(t0, dur, vol = 0.4, lowpass = 2000) {
+      if (!enabled || !ctx) return;
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer;
+      const g = ctx.createGain();
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(lowpass, t0);
+      lp.frequency.exponentialRampToValueAtTime(Math.max(200, lowpass * 0.3), t0 + dur);
+      g.gain.setValueAtTime(vol, t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      src.connect(lp); lp.connect(g); g.connect(sfxGain);
+      src.start(t0); src.stop(t0 + dur + 0.02);
+    }
+
+    const SFX = {
+      move()    { if (!ctx) return; tone(220, ctx.currentTime, 0.03, 'square', 0.28); },
+      rotate()  { if (!ctx) return; tone(440, ctx.currentTime, 0.05, 'triangle', 0.4, 660); },
+      soft()    { if (!ctx) return; tone(160, ctx.currentTime, 0.025, 'square', 0.2); },
+      hard()    { if (!ctx) return; const t = ctx.currentTime; noise(t, 0.12, 0.7, 1200); tone(120, t, 0.12, 'sawtooth', 0.45, 50); },
+      lock()    { if (!ctx) return; tone(180, ctx.currentTime, 0.05, 'square', 0.3); },
+      place()   { if (!ctx) return; const t = ctx.currentTime; tone(300, t, 0.06, 'square', 0.45, 150); noise(t, 0.05, 0.35, 1500); },
+      lineWhoosh(n) { if (!ctx) return; const t = ctx.currentTime; noise(t, 0.12 + n*0.03, 0.5, 3500); },
+      hold()    { if (!ctx) return; const t = ctx.currentTime; tone(520, t, 0.06, 'sine', 0.45, 720); },
+      single()  { if (!ctx) return; const t = ctx.currentTime; [523,659].forEach((f,i)=>tone(f, t+i*0.06, 0.12, 'square', 0.45)); },
+      double()  { if (!ctx) return; const t = ctx.currentTime; [523,659,784].forEach((f,i)=>tone(f, t+i*0.06, 0.13, 'square', 0.48)); },
+      triple()  { if (!ctx) return; const t = ctx.currentTime; [523,659,784,1047].forEach((f,i)=>tone(f, t+i*0.06, 0.14, 'square', 0.5)); },
+      tetris()  { if (!ctx) return; const t = ctx.currentTime; [523,659,784,1047,1319].forEach((f,i)=>tone(f, t+i*0.07, 0.2, 'sawtooth', 0.55)); noise(t, 0.3, 0.45, 3000); },
+      combo(n)  { if (!ctx) return; const t = ctx.currentTime; const base = 600 + n*80; tone(base, t, 0.1, 'triangle', 0.45, base*1.5); },
+      levelup() { if (!ctx) return; const t = ctx.currentTime; [392,523,659,784,1047].forEach((f,i)=>tone(f, t+i*0.08, 0.25, 'triangle', 0.5)); },
+      garbage() { if (!ctx) return; const t = ctx.currentTime; noise(t, 0.18, 0.6, 800); tone(90, t, 0.18, 'sawtooth', 0.45, 40); },
+      gameover(){ if (!ctx) return; const t = ctx.currentTime; [523,440,349,262,196].forEach((f,i)=>tone(f, t+i*0.18, 0.3, 'sawtooth', 0.5)); },
+      countTick(){ if (!ctx) return; tone(660, ctx.currentTime, 0.12, 'square', 0.55); },
+      countGo() { if (!ctx) return; const t = ctx.currentTime; [880,1320].forEach((f,i)=>tone(f, t+i*0.05, 0.25, 'square', 0.6)); },
+      click()   { if (!ctx) return; tone(440, ctx.currentTime, 0.05, 'square', 0.4, 600); },
+    };
+
+    function play(name, arg) {
+      if (!enabled) return;
+      ensureCtx();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume();
+      if (SFX[name]) SFX[name](arg);
+    }
+
+    // ---- BGM scheduler ----
+    function scheduleNote(noteArr, time, beatDur) {
+      const [note, beats] = noteArr;
+      const f = noteFreq(note);
+      const dur = beats * beatDur;
+      if (f > 0) {
+        // melody: bright square with slight decay
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = f;
+        const peak = 0.5;
+        g.gain.setValueAtTime(0.0001, time);
+        g.gain.exponentialRampToValueAtTime(peak, time + 0.01);
+        g.gain.setValueAtTime(peak, time + dur * 0.7);
+        g.gain.exponentialRampToValueAtTime(0.0001, time + dur * 0.95);
+        osc.connect(g); g.connect(musicGain);
+        osc.start(time); osc.stop(time + dur);
+      }
+    }
+
+    function scheduleBass(idx, time, beatDur) {
+      // bass plays one note every 2 beats; idx is the step index
+      if (idx % 2 !== 0) return;
+      const bi = (idx / 2) % BASS.length;
+      const f = noteFreq(BASS[Math.floor(bi)]);
+      if (f <= 0) return;
+      const dur = 2 * beatDur;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, time);
+      g.gain.exponentialRampToValueAtTime(0.5, time + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, time + dur * 0.9);
+      osc.connect(g); g.connect(musicGain);
+      osc.start(time); osc.stop(time + dur);
+    }
+
+    function scheduler() {
+      if (!bgmPlaying || !ctx) return;
+      const beatDur = 60 / tempo;
+      while (nextNoteTime < ctx.currentTime + LOOKAHEAD) {
+        const step = MELODY[stepIndex];
+        scheduleNote(step, nextNoteTime, beatDur);
+        // bass aligned to cumulative beats — approximate with stepIndex parity
+        scheduleBass(stepIndex, nextNoteTime, beatDur);
+        nextNoteTime += step[1] * beatDur;
+        stepIndex = (stepIndex + 1) % MELODY.length;
+      }
+      bgmTimer = setTimeout(scheduler, TICK);
+    }
+
+    function startBgm() {
+      if (!enabled) return;
+      ensureCtx();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume();
+      if (bgmPlaying) return;
+      bgmPlaying = true;
+      stepIndex = 0;
+      nextNoteTime = ctx.currentTime + 0.1;
+      scheduler();
+    }
+    function stopBgm() {
+      bgmPlaying = false;
+      if (bgmTimer) { clearTimeout(bgmTimer); bgmTimer = null; }
+    }
+    function pauseBgm() {
+      if (ctx && bgmPlaying) ctx.suspend();
+    }
+    function resumeBgm() {
+      if (ctx && bgmPlaying) ctx.resume();
+    }
+    function setTempo(bpm) { tempo = bpm; }
+
+    function toggle() {
+      enabled = !enabled;
+      if (!enabled) {
+        if (master) master.gain.value = 0;
+      } else {
+        ensureCtx();
+        if (master) master.gain.value = 1.0;
+      }
+      return enabled;
+    }
+    function isEnabled() { return enabled; }
+
+    return { play, unlock, startBgm, stopBgm, pauseBgm, resumeBgm, setTempo, toggle, isEnabled, ensureCtx };
+  })();
+
+  // BGM tempo scales gently with level
+  function bgmTempoForLevel(lv) {
+    // Noticeably faster each level, capped so it stays playable
+    return Math.min(280, 130 + (lv - 1) * 16);
+  }
+
   function newGrid() {
     return Array.from({length: ROWS}, () => Array(COLS).fill(0));
   }
@@ -764,13 +1019,14 @@
   }
   function move(dx) {
     if (!collide(current, dx, 0)) {
-      current.x += dx; buzz(3); tryResetLock(); return true;
+      current.x += dx; buzz(3); Audio.play('move'); tryResetLock(); return true;
     }
     return false;
   }
   function softDrop() {
     if (!collide(current, 0, 1)) {
       current.y++; score += 1; updateStats();
+      Audio.play('soft');
       dropCounter = 0;
       return true;
     }
@@ -784,12 +1040,14 @@
     updateStats();
     shake = Math.min(8, 3 + dist * 0.3);
     buzz(18);
+    Audio.play('hard');
     lockPiece();
   }
 
   function lockPiece() {
     if (clearing) return;
     merge();
+    Audio.play('place'); // placement feedback on every lock
     const fullRows = findFullRows();
     if (fullRows.length > 0) {
       const meanY = fullRows.reduce((a,b) => a+b, 0) / fullRows.length;
@@ -799,8 +1057,16 @@
       let total = base;
       if (chain >= 2) total += 50 * chain * level;
       clearing = { rows: fullRows, elapsed: 0, points: total, cleared, meanY };
+      // Fire line-clear sound immediately (tight with the placement), not after the anim
+      Audio.play('lineWhoosh', cleared);
+      if (cleared === 4) Audio.play('tetris');
+      else if (cleared === 3) Audio.play('triple');
+      else if (cleared === 2) Audio.play('double');
+      else Audio.play('single');
+      if (chain >= 2) Audio.play('combo', chain);
     } else {
       chain = 0;
+      Audio.play('lock');
       applyPendingGarbage();
       spawn();
       canHold = true;
@@ -817,7 +1083,7 @@
     for (const kick of kicks) {
       if (!collide(current, kick, 0, newShape)) {
         current.x += kick; current.rotation = newRot; current.shape = newShape;
-        buzz(6); tryResetLock(); return;
+        buzz(6); Audio.play('rotate'); tryResetLock(); return;
       }
     }
   }
@@ -825,6 +1091,7 @@
   function doHold() {
     if (!canHold || clearing) return;
     buzz(10);
+    Audio.play('hold');
     const curName = current.name;
     if (hold === null) {
       hold = curName;
@@ -864,14 +1131,16 @@
       buzz(35);
       boardFlash = 1;
       showLevelUpBanner(level);
+      Audio.play('levelup');
+      Audio.setTempo(bgmTempoForLevel(level));
     }
     const px = (COLS / 2) * BLOCK;
     const py = (c.meanY + 0.5) * BLOCK;
     let label = '';
     if (c.cleared === 4) { label = 'TETRIS!'; shake = Math.max(shake, 12); boardFlash = Math.max(boardFlash, 0.8); }
-    else if (c.cleared === 3) label = 'TRIPLE';
-    else if (c.cleared === 2) label = 'DOUBLE';
-    else label = 'SINGLE';
+    else if (c.cleared === 3) { label = 'TRIPLE'; }
+    else if (c.cleared === 2) { label = 'DOUBLE'; }
+    else { label = 'SINGLE'; }
     addPopup(label + ' +' + c.points, c.cleared === 4 ? '#ffe14a' : '#f0eaff', px, py, c.cleared === 4);
     if (chain >= 2) {
       addPopup('COMBO x' + chain, '#ff2e88', px, py - BLOCK * 1.5, false);
@@ -935,6 +1204,7 @@
     pendingAttacks = [];
     if (totalApplied > 0) {
       buzz(15);
+      Audio.play('garbage');
       shake = Math.max(shake, totalApplied * 1.2);
     }
   }
@@ -1148,6 +1418,8 @@
     running = false;
     over = true;
     buzz(80);
+    Audio.play('gameover');
+    Audio.stopBgm();
     if (gameMode === 'vs') {
       sendOver();
       showVsResult(false);
@@ -1223,6 +1495,8 @@
     running = true; paused = false; over = false;
     closeAllOverlays();
     showGestureHint();
+    Audio.setTempo(bgmTempoForLevel(1));
+    Audio.startBgm();
     if (rafId) cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(loop);
   }
@@ -1241,10 +1515,12 @@
     if (!running || over) return;
     paused = !paused;
     document.getElementById('pauseOverlay').classList.toggle('show', paused);
+    if (paused) Audio.pauseBgm(); else Audio.resumeBgm();
   }
 
   function returnToMenu() {
     running = false; over = false; paused = false;
+    Audio.stopBgm();
     if (rafId) cancelAnimationFrame(rafId);
     if (gameMode === 'vs') disconnectMqtt();
     gameMode = 'solo';
@@ -1433,6 +1709,14 @@
   safeBind('backToMenuBtn', () => returnToMenu());
   safeBind('resumeBtn', togglePause);
   safeBind('pauseBtn', togglePause);
+
+  safeBind('soundBtn', () => {
+    const on = Audio.toggle();
+    const btn = document.getElementById('soundBtn');
+    btn.textContent = on ? '♪' : '♪̸';
+    btn.style.opacity = on ? '' : '0.4';
+    btn.style.color = on ? '' : 'var(--hot)';
+  });
 
   // ===== VS Lobby =====
   function generateRoomCode() {
@@ -1755,6 +2039,7 @@
       void ov.offsetWidth;
       ov.classList.add('show');
       buzz(12);
+      if (steps[i] === 'GO!') Audio.play('countGo'); else Audio.play('countTick');
       i++;
       setTimeout(step, 900);
     }
@@ -1762,6 +2047,17 @@
   }
 
   // ===== Init =====
+  // Unlock audio on the first user interaction (mobile autoplay policy)
+  function unlockAudioOnce() {
+    Audio.unlock();
+    document.removeEventListener('touchstart', unlockAudioOnce);
+    document.removeEventListener('mousedown', unlockAudioOnce);
+    document.removeEventListener('keydown', unlockAudioOnce);
+  }
+  document.addEventListener('touchstart', unlockAudioOnce, { passive: true });
+  document.addEventListener('mousedown', unlockAudioOnce);
+  document.addEventListener('keydown', unlockAudioOnce);
+
   document.addEventListener('gesturestart', e => e.preventDefault());
   let lastTouchEnd = 0;
   document.addEventListener('touchend', e => {
