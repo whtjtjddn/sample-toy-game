@@ -359,6 +359,16 @@
     padding: 18px;
     text-align: center;
   }
+  /* Menu-style overlays cover the full viewport so SCORE / HOLD / etc don't show through.
+   * Pause + game-over stay scoped to board-wrap so the board remains visible behind them. */
+  #startOverlay, #vsLobby, #rankingOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    border-radius: 0;
+    overflow-y: auto;
+    justify-content: safe center;
+  }
   .overlay.show { display: flex; }
   .overlay h2 {
     font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
@@ -478,79 +488,294 @@
     cursor: not-allowed;
   }
 
+  /* VS Room column wrappers — mobile: stacked, desktop: side-by-side */
+  .vs-room-info-col {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    width: 100%;
+    max-width: 300px;
+  }
+  .vs-room-chat-col {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  /* Lobby header — room code + count + close */
+  .lobby-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+    background: linear-gradient(180deg, rgba(0,240,255,0.1), rgba(0,240,255,0.02));
+    border: 1px solid rgba(0,240,255,0.35);
+    border-radius: 10px;
+    box-shadow: inset 0 0 14px rgba(0,240,255,0.06);
+    text-align: left;
+  }
+  .lobby-code {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+  .lobby-code-label {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    line-height: 1;
+  }
+  .lobby-code-value {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 26px;
+    letter-spacing: 5px;
+    color: var(--cool);
+    text-shadow: 0 0 10px var(--cool);
+    line-height: 1.1;
+  }
+  .lobby-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .lobby-header-right .room-meta { margin: 0; }
+  .lobby-header-right .room-meta {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 4px 10px;
+    background: rgba(0,240,255,0.1);
+    border-color: rgba(0,240,255,0.35);
+    color: var(--cool);
+  }
+  .close-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255,46,136,0.1);
+    border: 1px solid rgba(255,46,136,0.4);
+    color: var(--hot);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-shrink: 0;
+    transition: background 0.1s, transform 0.08s;
+  }
+  .close-btn:active {
+    background: rgba(255,46,136,0.3);
+    transform: scale(0.92);
+  }
+
+  /* Settings card — labeled section for game options */
+  .settings-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .settings-label {
+    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--dim);
+    letter-spacing: 1px;
+  }
+
+  /* Action buttons — full-width primary CTAs */
+  .action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+  .action-buttons button {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 17px;
+  }
+
   /* CHAT PANEL (lobby) */
   .chat-panel {
     width: 100%;
     max-width: 280px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    background: rgba(0,0,0,0.3);
+    gap: 6px;
+    background: rgba(0,0,0,0.4);
     border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 6px;
+    border-radius: 10px;
+    padding: 8px;
+    box-shadow: inset 0 0 14px rgba(0,0,0,0.3);
   }
   .chat-messages {
-    max-height: 100px;
-    min-height: 60px;
+    max-height: 150px;
+    min-height: 80px;
     overflow-y: auto;
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-    font-size: 13px;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
-    gap: 1px;
-    line-height: 1.35;
-    padding: 2px 4px;
+    gap: 6px;
+    padding: 4px 2px;
+    scroll-behavior: smooth;
   }
   .chat-messages::-webkit-scrollbar { width: 4px; }
-  .chat-messages::-webkit-scrollbar-thumb { background: rgba(0,240,255,0.3); border-radius: 2px; }
-  .chat-msg { color: var(--ink); word-wrap: break-word; padding: 1px 0; }
-  .chat-msg .author {
+  .chat-messages::-webkit-scrollbar-track { background: transparent; }
+  .chat-messages::-webkit-scrollbar-thumb { background: rgba(0,240,255,0.25); border-radius: 2px; }
+  .chat-messages::-webkit-scrollbar-thumb:hover { background: rgba(0,240,255,0.5); }
+
+  .chat-msg {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    animation: chatSlideIn 0.22s ease-out;
+    max-width: 100%;
+  }
+  @keyframes chatSlideIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Others — left aligned */
+  .chat-msg:not(.me):not(.system) { align-items: flex-start; }
+  .chat-msg:not(.me):not(.system) .author {
     color: var(--cool);
     font-weight: 700;
-    margin-right: 5px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding-left: 8px;
+    margin-bottom: 1px;
   }
-  .chat-msg.me .author { color: var(--warn); }
-  .chat-msg.system { color: var(--dim); font-style: italic; font-size: 12px; }
+  .chat-msg:not(.me):not(.system) .bubble {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px 12px 12px 4px;
+    padding: 5px 10px;
+    color: var(--ink);
+    max-width: 90%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.35;
+  }
+
+  /* Me — right aligned */
+  .chat-msg.me { align-items: flex-end; }
+  .chat-msg.me .bubble {
+    background: linear-gradient(135deg, rgba(0,240,255,0.28), rgba(0,240,255,0.12));
+    border: 1px solid rgba(0,240,255,0.45);
+    border-radius: 12px 12px 4px 12px;
+    padding: 5px 10px;
+    color: var(--ink);
+    max-width: 90%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.35;
+    text-shadow: 0 0 4px rgba(0,240,255,0.15);
+  }
+
+  /* Same author consecutively — hide name, tighter spacing */
+  .chat-msg.same-author { margin-top: -4px; }
+  .chat-msg.same-author .author { display: none; }
+  .chat-msg.same-author:not(.me) .bubble { border-radius: 4px 12px 12px 4px; }
+
+  /* System messages — centered, dim */
+  .chat-msg.system {
+    align-items: center;
+    color: var(--dim);
+    font-style: italic;
+    font-size: 11px;
+    text-align: center;
+    padding: 2px 0;
+    opacity: 0.85;
+  }
+  .chat-msg.system .bubble {
+    background: rgba(120,80,220,0.08);
+    border: 1px solid rgba(120,80,220,0.18);
+    border-radius: 10px;
+    padding: 2px 10px;
+    color: var(--dim);
+    font-size: 11px;
+  }
+
+  /* Empty state */
   .chat-empty {
     color: var(--dim);
     text-align: center;
+    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
     font-style: italic;
     font-size: 12px;
-    padding: 8px;
+    padding: 18px 8px;
+    opacity: 0.6;
+    margin: auto 0;
   }
+  .chat-empty::before {
+    content: '💬';
+    display: block;
+    font-size: 22px;
+    margin-bottom: 4px;
+    opacity: 0.7;
+    font-style: normal;
+  }
+
+  /* Input row */
   .chat-input-row {
     display: flex;
     gap: 4px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(0,240,255,0.18);
+    border-radius: 8px;
+    padding: 3px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .chat-input-row:focus-within {
+    border-color: rgba(0,240,255,0.55);
+    box-shadow: 0 0 12px rgba(0,240,255,0.2);
   }
   .chat-input-row input {
     flex: 1;
     min-width: 0;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid var(--line);
-    border-radius: 4px;
+    background: transparent;
+    border: none;
     color: var(--ink);
     font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
     font-size: 14px;
     padding: 5px 8px;
     outline: none;
   }
-  .chat-input-row input:focus { border-color: var(--cool); }
-  .chat-input-row input::placeholder { color: var(--dim); opacity: 0.7; }
+  .chat-input-row input::placeholder { color: var(--dim); opacity: 0.5; }
   .chat-input-row button {
-    background: rgba(0,240,255,0.15);
+    background: linear-gradient(135deg, rgba(0,240,255,0.32), rgba(0,240,255,0.12));
     border: 1px solid rgba(0,240,255,0.5);
-    border-radius: 4px;
+    border-radius: 6px;
     color: var(--cool);
     font-family: 'Rajdhani', sans-serif;
-    font-size: 13px;
-    font-weight: 700;
-    padding: 4px 10px;
+    font-size: 16px;
+    font-weight: 900;
+    padding: 0 12px;
     cursor: pointer;
-    letter-spacing: 1px;
     flex-shrink: 0;
+    letter-spacing: 0;
+    text-shadow: 0 0 6px rgba(0,240,255,0.5);
+    transition: transform 0.08s;
+    min-width: 36px;
   }
-  .chat-input-row button:active { background: rgba(0,240,255,0.3); }
+  .chat-input-row button:active { transform: scale(0.92); background: rgba(0,240,255,0.45); }
 
   /* EMOTE DOCK (in-game) */
   .emote-dock {
@@ -633,16 +858,6 @@
     padding: 1px 8px;
     border: 1px solid var(--line);
     border-radius: 10px;
-  }
-  .attack-mode-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-    color: var(--dim);
-    letter-spacing: 1px;
   }
   .attack-mode-toggle {
     display: flex;
@@ -851,7 +1066,17 @@
     outline: none;
   }
   .room-input:focus { border-color: var(--cool); box-shadow: 0 0 12px rgba(0,240,255,0.3); }
-  .status-line { font-size: 14px; color: var(--dim); letter-spacing: 1px; }
+  .status-line {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    opacity: 0.7;
+    margin: -4px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
   .conn-dot {
     display: inline-block;
     width: 8px; height: 8px;
@@ -1112,8 +1337,48 @@
     .player-list { max-width: 360px; max-height: 260px; padding: 10px; }
     .player-item { font-size: 16px; padding: 8px 12px; }
     .player-item .badge { font-size: 11px; padding: 2px 7px; }
-    .attack-mode-row { font-size: 15px; }
+    .settings-label { font-size: 14px; }
+    .settings-card { padding: 10px 14px; }
     .attack-mode-toggle button { font-size: 15px; padding: 7px 18px; }
+    .lobby-code-value { font-size: 32px; letter-spacing: 7px; }
+    .action-buttons button { font-size: 18px; padding: 14px; }
+
+    /* Lobby room as 2-column layout on desktop */
+    #vsRoom {
+      flex-direction: row !important;
+      align-items: stretch !important;
+      justify-content: center;
+      gap: 28px !important;
+      max-width: 800px;
+    }
+    .vs-room-info-col {
+      flex: 1;
+      max-width: 340px;
+    }
+    .vs-room-chat-col {
+      flex: 1;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      justify-content: stretch;
+      align-items: stretch;
+    }
+    .vs-room-chat-col .chat-panel {
+      flex: 1;
+      width: 100%;
+      max-width: none;
+      display: flex;
+      flex-direction: column;
+    }
+    .vs-room-chat-col .chat-messages {
+      flex: 1;
+      max-height: none;
+      min-height: 280px;
+    }
+    .vs-room-chat-col .chat-msg { font-size: 14px; }
+    .vs-room-chat-col .chat-panel { padding: 10px; }
+    .vs-room-chat-col .chat-input-row input { font-size: 15px; padding: 6px 10px; }
+    .vs-room-chat-col .chat-input-row button { font-size: 18px; padding: 0 14px; min-width: 42px; }
 
     /* Ranking on desktop */
     .ranking-list { max-width: 400px; max-height: 56vh; }
@@ -1272,28 +1537,40 @@
           <button id="guestConnectBtn">참여</button>
           <button class="ghost" id="guestCancelBtn">뒤로</button>
         </div>
-        <div id="vsRoom" style="display:none;flex-direction:column;align-items:center;gap:10px;width:100%">
-          <p>방 코드 <span class="room-code-inline" id="roomCodeLabel">----</span> <span class="room-meta" id="playerCount">1/6</span></p>
-          <p class="status-line"><span class="conn-dot" id="roomDot"></span><span id="roomStatus">연결 중...</span></p>
-          <div class="player-list" id="playerList"></div>
-          <div class="attack-mode-row">
-            <span>공격</span>
-            <div class="attack-mode-toggle" id="attackModeToggle">
-              <button data-mode="payback" class="active" type="button">보복</button>
-              <button data-mode="random" type="button">무작위</button>
+        <div id="vsRoom" style="display:none;flex-direction:column;align-items:center;gap:14px;width:100%">
+          <div class="vs-room-info-col">
+            <div class="lobby-header">
+              <div class="lobby-code">
+                <div class="lobby-code-label">방 코드</div>
+                <div class="lobby-code-value" id="roomCodeLabel">----</div>
+              </div>
+              <div class="lobby-header-right">
+                <div class="room-meta" id="playerCount">1/6</div>
+                <button class="close-btn" id="leaveRoomBtn" aria-label="나가기">✕</button>
+              </div>
+            </div>
+            <p class="status-line"><span class="conn-dot" id="roomDot"></span><span id="roomStatus">연결 중...</span></p>
+            <div class="player-list" id="playerList"></div>
+            <div class="settings-card">
+              <span class="settings-label">공격 방식</span>
+              <div class="attack-mode-toggle" id="attackModeToggle">
+                <button data-mode="payback" class="active" type="button">보복</button>
+                <button data-mode="random" type="button">무작위</button>
+              </div>
+            </div>
+            <div class="action-buttons">
+              <button id="readyBtn">준비</button>
+              <button id="startMatchBtn" style="display:none">시작</button>
             </div>
           </div>
-          <div class="chat-panel">
-            <div class="chat-messages" id="chatMessages"></div>
-            <form class="chat-input-row" id="chatForm" autocomplete="off">
-              <input type="text" id="chatInput" placeholder="메시지 입력..." maxlength="80" autocomplete="off">
-              <button type="submit" id="chatSendBtn">전송</button>
-            </form>
-          </div>
-          <div class="btn-group" style="width:100%;max-width:240px">
-            <button id="readyBtn">준비</button>
-            <button id="startMatchBtn" style="display:none">시작</button>
-            <button id="leaveRoomBtn" class="ghost">나가기</button>
+          <div class="vs-room-chat-col">
+            <div class="chat-panel">
+              <div class="chat-messages" id="chatMessages"></div>
+              <form class="chat-input-row" id="chatForm" autocomplete="off">
+                <input type="text" id="chatInput" placeholder="메시지 입력..." maxlength="80" autocomplete="off">
+                <button type="submit" id="chatSendBtn" aria-label="전송">➤</button>
+              </form>
+            </div>
           </div>
         </div>
       </div>
@@ -2818,16 +3095,46 @@
     // Remove empty placeholder
     const empty = container.querySelector('.chat-empty');
     if (empty) empty.remove();
+
     const div = document.createElement('div');
     div.className = 'chat-msg' + (isMe ? ' me' : '') + (isSystem ? ' system' : '');
-    if (isSystem) {
-      div.textContent = text;
-    } else {
-      div.innerHTML = `<span class="author">${escapeHtml(name)}</span>${escapeHtml(text)}`;
+
+    // Group consecutive messages from the same author (hide repeated name)
+    const prev = container.lastElementChild;
+    if (prev && !isSystem) {
+      const prevSameSide = isMe ? prev.classList.contains('me') :
+        (!prev.classList.contains('me') && !prev.classList.contains('system'));
+      if (prevSameSide && prev.dataset.author === name) {
+        div.classList.add('same-author');
+      }
     }
+
+    if (isSystem) {
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = text;
+      div.appendChild(bubble);
+    } else {
+      div.dataset.author = name;
+      if (!isMe) {
+        const authorDiv = document.createElement('div');
+        authorDiv.className = 'author';
+        authorDiv.textContent = name;
+        div.appendChild(authorDiv);
+      }
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = text;
+      div.appendChild(bubble);
+    }
+
+    // Smart auto-scroll: only stick to bottom if user was already near bottom
+    const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 40;
     container.appendChild(div);
     while (container.children.length > 50) container.firstChild.remove();
-    container.scrollTop = container.scrollHeight;
+    if (wasAtBottom || isMe) {
+      container.scrollTop = container.scrollHeight;
+    }
   }
   function clearChat() {
     const container = document.getElementById('chatMessages');
@@ -3061,11 +3368,15 @@
     if (!id) return;
     switch (msg.type) {
       case 'hello': {
+        const wasNew = !players.has(id);
         const p = ensurePlayer(id, msg);
         // Respond with my current state so the newcomer sees me
         sendMessage({ type: 'roster', name: myName, isHost, ready: myReady });
         // Host re-broadcasts settings so newcomers see them
         if (isHost) sendMessage({ type: 'settings', attackMode });
+        if (wasNew && !inMatch) {
+          appendChatMessage('', `${p.name} 님이 입장했어요`, false, true);
+        }
         refreshPlayerList();
         refreshStartBtn();
         break;
@@ -3132,6 +3443,7 @@
       case 'bye': {
         if (players.has(id)) {
           const p = players.get(id);
+          const leftName = p.name;
           // If they were alive in match, treat as elimination
           if (inMatch && p.alive) {
             p.alive = false;
@@ -3143,6 +3455,9 @@
             const info = oppCanvases.get(id);
             if (info.cardEl && info.cardEl.parentNode) info.cardEl.parentNode.removeChild(info.cardEl);
             oppCanvases.delete(id);
+          }
+          if (!inMatch) {
+            appendChatMessage('', `${leftName} 님이 나갔어요`, false, true);
           }
           refreshPlayerList();
           refreshStartBtn();
