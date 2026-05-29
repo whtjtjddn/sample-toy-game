@@ -1380,26 +1380,32 @@
    * ============================================================ */
   @media (max-width: 767px) {
     body.vs-mode .score-badge { display: none; }
-    body.vs-mode .topbar { justify-content: flex-end; gap: 6px; }
+    body.vs-mode .topbar {
+      justify-content: flex-end;
+      gap: 6px;
+      height: 36px;
+      flex-shrink: 0;
+    }
+    body.vs-mode .icon-btn { width: 36px; }
 
     /* Show compact stats bar */
     body.vs-mode .mobile-vs-bar {
       display: flex;
       align-items: center;
       gap: 16px;
-      padding: 6px 4px;
+      padding: 4px 4px;
       flex-shrink: 0;
     }
 
     /* Hide regular side panels entirely (HOLD/LINE/LEVEL/NEXT) on mobile VS */
     body.vs-mode .side { display: none; }
 
-    /* Opp list becomes a horizontal scroll strip */
+    /* Opp list becomes a ~20vh horizontal strip — always shows 5 slots */
     body.vs-mode .opp-list {
       display: flex;
       flex-direction: row;
       width: 100%;
-      height: clamp(78px, 13vh, 104px);
+      height: clamp(110px, 20vh, 170px);
       overflow-x: auto;
       overflow-y: hidden;
       gap: 5px;
@@ -1413,7 +1419,7 @@
     /* Each card is a compact vertical mini-display */
     body.vs-mode .opp-card {
       flex: 0 0 auto;
-      width: clamp(58px, 16vw, 78px);
+      width: clamp(64px, 18vw, 90px);
       height: 100%;
       min-height: 0;
       max-height: none;
@@ -1429,6 +1435,27 @@
       letter-spacing: 0;
     }
     body.vs-mode .opp-ko { font-size: 13px; }
+
+    /* Empty slot on mobile */
+    body.vs-mode .opp-card.empty {
+      border: 1px dashed rgba(120, 80, 220, 0.3);
+      background: rgba(0, 0, 0, 0.2);
+      box-shadow: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    body.vs-mode .opp-card.empty .opp-empty {
+      color: var(--dim);
+      font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
+      font-weight: 600;
+      font-size: 9px;
+      opacity: 0.4;
+      letter-spacing: 0.5px;
+    }
+    body.vs-mode .opp-card.empty .opp-name,
+    body.vs-mode .opp-card.empty .opp-body-x,
+    body.vs-mode .opp-card.empty .opp-stats { display: none; }
   }
 
   /* Show mobile hint by default; swap to desktop on wide screens */
@@ -1534,7 +1561,7 @@
     .overlay p { font-size: 18px; }
     .overlay .hint { font-size: 15px; line-height: 1.8; }
     .overlay button {
-      font-size: 22px; padding: 12px 30px; border-radius: 8px;
+      font-size: 22px; padding: 12px 38px; border-radius: 8px;
     }
     .overlay button.ghost { font-size: 16px; padding: 7px 22px; }
 
@@ -1618,52 +1645,71 @@
      * VS mode on desktop — Hangame-style layout:
      * [ Opponents | HOLD/Stats | My Board | NEXT ]
      * ============================================================ */
+    /* ============================================================
+     * DESKTOP VS — Hangame-style layout:
+     *   [ Opps 2x3 grid | HOLD/Stats | NEXT | MY BOARD ]
+     * 5 opp slots always (empty placeholders when fewer players).
+     * ============================================================ */
     body.vs-mode .play-area {
       gap: 14px;
     }
-    body.vs-mode .side.left {
-      order: 2;
-    }
-    body.vs-mode .board-wrap {
-      order: 3;
-    }
-    body.vs-mode .side.right {
-      order: 4;
-      width: clamp(110px, 12vw, 150px);
-    }
-    /* Opponents become a fixed RIGHT sidebar — designed for up to 5 opponents
-     * in a 2-column grid (5 cards = 2x3 with one slot empty, fits naturally) */
     body.vs-mode .opp-list {
-      position: fixed;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      width: clamp(280px, 24vw, 360px);
-      z-index: 20;
-      padding: 22px 14px;
-      background: linear-gradient(270deg, rgba(120, 80, 220, 0.1), rgba(120, 80, 220, 0.02));
-      border-left: 1px solid var(--line);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
+      position: static;
+      order: 1;
+      width: clamp(240px, 24vw, 340px);
+      height: 100%;
+      flex-shrink: 0;
+      background: linear-gradient(180deg, rgba(120, 80, 220, 0.08), rgba(120, 80, 220, 0.02));
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      grid-auto-rows: minmax(180px, 1fr);
-      gap: 10px;
-      align-content: start;
-      overflow-y: auto;
+      grid-template-rows: repeat(3, 1fr);
+      gap: 8px;
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
     }
+    body.vs-mode .side.left { order: 2; }
+    body.vs-mode .side.right { order: 3; width: clamp(110px, 12vw, 150px); }
+    body.vs-mode .board-wrap { order: 4; }
+
     body.vs-mode .opp-card {
       flex: unset;
-      min-height: 180px;
-      max-height: 360px;
+      min-height: 0;
+      max-height: none;
     }
-    body.vs-mode .opp-card .opp-name { font-size: 13px; padding: 4px 6px; }
-    body.vs-mode .opp-card .opp-stats { font-size: 12px; padding: 3px 4px 5px; }
+    body.vs-mode .opp-card .opp-name { font-size: 12px; padding: 3px 5px; }
+    body.vs-mode .opp-card .opp-stats { font-size: 11px; padding: 2px 4px 4px; }
 
-    /* Shift .app right to leave room for the right sidebar */
+    /* Empty opp slot placeholder — visible when fewer than 5 opponents */
+    body.vs-mode .opp-card.empty {
+      border-style: dashed;
+      border-color: rgba(120, 80, 220, 0.3);
+      background: rgba(0, 0, 0, 0.15);
+      box-shadow: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    body.vs-mode .opp-card.empty .opp-empty {
+      color: var(--dim);
+      font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 1px;
+      opacity: 0.5;
+      text-align: center;
+    }
+    body.vs-mode .opp-card.empty .opp-name,
+    body.vs-mode .opp-card.empty .opp-body-x,
+    body.vs-mode .opp-card.empty .opp-stats { display: none; }
+
+    /* Reset .app — no padding offset, allow wider */
     body.vs-mode .app {
-      padding-right: clamp(300px, 25vw, 380px);
-      max-width: none;
+      padding-right: 18px;
+      padding-left: 18px;
+      max-width: 1400px;
     }
 
     /* Rank achievement on game over */
@@ -3938,26 +3984,36 @@
     oppListEl.innerHTML = '';
     oppCanvases.clear();
     const opps = [...players.values()].filter(p => p.id !== myPlayerId);
-    for (const p of opps) {
+    const SLOTS = 5;
+    for (let i = 0; i < SLOTS; i++) {
+      const p = opps[i] || null;
       const card = document.createElement('div');
-      card.className = 'opp-card';
-      card.dataset.pid = p.id;
-      const name = document.createElement('div');
-      name.className = 'opp-name';
-      name.textContent = p.name;
-      const body = document.createElement('div');
-      body.className = 'opp-body-x';
-      const canvas = document.createElement('canvas');
-      canvas.className = 'opp-board';
-      body.appendChild(canvas);
-      const stats = document.createElement('div');
-      stats.className = 'opp-stats';
-      stats.innerHTML = '<span>0</span> · LN <span>0</span>';
-      card.appendChild(name);
-      card.appendChild(body);
-      card.appendChild(stats);
+      if (p) {
+        card.className = 'opp-card';
+        card.dataset.pid = p.id;
+        const name = document.createElement('div');
+        name.className = 'opp-name';
+        name.textContent = p.name;
+        const body = document.createElement('div');
+        body.className = 'opp-body-x';
+        const canvas = document.createElement('canvas');
+        canvas.className = 'opp-board';
+        body.appendChild(canvas);
+        const stats = document.createElement('div');
+        stats.className = 'opp-stats';
+        stats.innerHTML = '<span>0</span> · LN <span>0</span>';
+        card.appendChild(name);
+        card.appendChild(body);
+        card.appendChild(stats);
+        oppCanvases.set(p.id, { canvas, ctx: canvas.getContext('2d'), cell: 4, cardEl: card });
+      } else {
+        card.className = 'opp-card empty';
+        const empty = document.createElement('div');
+        empty.className = 'opp-empty';
+        empty.textContent = '대기 중';
+        card.appendChild(empty);
+      }
       oppListEl.appendChild(card);
-      oppCanvases.set(p.id, { canvas, ctx: canvas.getContext('2d'), cell: 4, cardEl: card });
     }
   }
 
