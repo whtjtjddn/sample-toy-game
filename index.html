@@ -1683,8 +1683,9 @@
       padding: 10px;
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      grid-template-rows: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 200px);
       gap: 8px;
+      align-content: start;
       backdrop-filter: blur(2px);
       -webkit-backdrop-filter: blur(2px);
     }
@@ -1692,7 +1693,9 @@
     body.vs-mode .opp-card {
       flex: unset;
       min-height: 0;
-      max-height: none;
+      height: 200px;
+      max-height: 200px;
+      align-self: start;
     }
     body.vs-mode .opp-card .opp-name { font-size: 12px; padding: 3px 5px; }
     body.vs-mode .opp-card .opp-stats { font-size: 11px; padding: 2px 4px 4px; }
