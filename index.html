@@ -1415,6 +1415,10 @@
     /* Hide regular side panels entirely (HOLD/LINE/LEVEL/NEXT) on mobile VS */
     body.vs-mode .side { display: none; }
 
+    /* Board takes the full play-area now that sides are hidden */
+    body.vs-mode .play-area { gap: 0; }
+    body.vs-mode .board-wrap { flex: 1; width: 100%; }
+
     /* Opp list becomes a ~20vh horizontal strip — always shows 5 slots */
     body.vs-mode .opp-list {
       display: flex;
@@ -1683,19 +1687,26 @@
       padding: 10px;
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      grid-template-rows: repeat(3, 200px);
+      grid-auto-rows: min-content;
       gap: 8px;
       align-content: start;
       backdrop-filter: blur(2px);
       -webkit-backdrop-filter: blur(2px);
+      overflow-y: auto;
     }
 
     body.vs-mode .opp-card {
       flex: unset;
       min-height: 0;
-      height: 200px;
-      max-height: 200px;
+      height: auto;
+      max-height: none;
+      aspect-ratio: 1 / 1.7;
       align-self: start;
+    }
+    /* Body inside the card inherits the leftover space and holds the canvas */
+    body.vs-mode .opp-card .opp-body-x {
+      flex: 1;
+      min-height: 0;
     }
     body.vs-mode .opp-card .opp-name { font-size: 12px; padding: 3px 5px; }
     body.vs-mode .opp-card .opp-stats { font-size: 11px; padding: 2px 4px 4px; }
@@ -4307,21 +4318,23 @@
   }, {passive: false});
 
   // Reposition opp-list based on viewport.
-  //   Mobile: as a horizontal strip above .play-area (CSS converts it to row).
-  //   Desktop: stays in .play-area; CSS uses position:fixed to float it as a left sidebar.
+  //   Mobile: as a horizontal strip above .mobile-vs-bar (top of screen below topbar).
+  //   Desktop: stays in .play-area; CSS uses position:fixed to float it as a sidebar.
   const desktopMQ = window.matchMedia('(min-width: 768px) and (min-height: 600px)');
   function repositionOppList() {
     const oppList = document.getElementById('oppList');
     const rightPanel = document.getElementById('rightPanel');
     const playArea = document.querySelector('.play-area');
     const app = document.querySelector('.app');
+    const mobileBar = document.getElementById('mobileVsBar');
     if (!oppList || !rightPanel || !playArea || !app) return;
     if (desktopMQ.matches) {
       if (oppList.parentElement !== playArea) playArea.appendChild(oppList);
     } else {
-      // Mobile — place above play-area (inserted right before it)
-      if (oppList.parentElement !== app || oppList.nextElementSibling !== playArea) {
-        app.insertBefore(oppList, playArea);
+      // Mobile — opp strip ABOVE the mobile-vs-bar HUD
+      const anchor = mobileBar || playArea;
+      if (oppList.parentElement !== app || oppList.nextElementSibling !== anchor) {
+        app.insertBefore(oppList, anchor);
       }
     }
   }
