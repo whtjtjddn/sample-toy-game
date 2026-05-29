@@ -1,19 +1,9 @@
-// /api/rankings.js  — Vercel serverless function using Upstash Redis
-//
-// Setup (one-time):
-// 1) In Vercel dashboard → Storage tab → Marketplace Database Providers
-//    Find "Upstash" → Install (or visit https://vercel.com/marketplace/upstash)
-// 2) Pick "Let Vercel manage your Upstash account" (simpler) and create a new Redis DB
-//    Free tier: ~500K commands/month
-// 3) Connect to this project. Vercel auto-injects env vars:
-//      UPSTASH_REDIS_REST_URL
-//      UPSTASH_REDIS_REST_TOKEN
-// 4) Locally: npm install @upstash/redis
-// 5) Redeploy the project so env vars become available to the function.
+// /api/rankings.js — Vercel serverless function (CommonJS)
+// Uses @upstash/redis. Requires UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN
+// to be set in Vercel project env vars (automatic when you install the Upstash
+// integration via Vercel Marketplace).
 
-import { Redis } from '@upstash/redis';
-
-const redis = Redis.fromEnv();
+const { Redis } = require('@upstash/redis');
 
 const KEY = 'tetris:leaderboard:v1';
 const MAX_STORED = 100;
@@ -21,13 +11,28 @@ const MAX_RETURN = 20;
 const MIN_SCORE = 1;
 const MAX_SCORE = 99_999_999;
 
+// Lazy-init so a missing env var doesn't crash module load
+let _redis = null;
+function getRedis() {
+  if (!_redis) {
+    if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+      throw new Error(
+        'Missing env vars: UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN. ' +
+        'Install Upstash via Vercel Marketplace, connect to this project, then redeploy.'
+      );
+    }
+    _redis = Redis.fromEnv();
+  }
+  return _redis;
+}
+
 function sanitizeName(raw) {
   if (typeof raw !== 'string') return '익명';
   const cleaned = raw.replace(/[^\w가-힣\- ]/g, '').trim();
   return cleaned.slice(0, 16) || '익명';
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -36,6 +41,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
+    const redis = getRedis();
+
     if (req.method === 'GET') {
       const list = (await redis.get(KEY)) || [];
       return res.status(200).json({ leaderboard: list.slice(0, MAX_RETURN) });
@@ -84,7 +91,10 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: 'method not allowed' });
   } catch (err) {
-    console.error('rankings api error', err);
-    return res.status(500).json({ error: 'server error', detail: String(err && err.message || err) });
+    console.error('rankings api error:', err);
+    return res.status(500).json({
+      error: 'server error',
+      detail: String(err && err.message || err)
+    });
   }
-}
+};
