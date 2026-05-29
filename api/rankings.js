@@ -1,7 +1,7 @@
 // /api/rankings.js — Vercel serverless function (CommonJS)
-// Uses @upstash/redis. Requires UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN
-// to be set in Vercel project env vars (automatic when you install the Upstash
-// integration via Vercel Marketplace).
+// Accepts either set of env vars depending on how the integration was provisioned:
+//   - UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN  (newer Upstash integration)
+//   - KV_REST_API_URL / KV_REST_API_TOKEN                (legacy Vercel KV compat)
 
 const { Redis } = require('@upstash/redis');
 
@@ -11,18 +11,18 @@ const MAX_RETURN = 20;
 const MIN_SCORE = 1;
 const MAX_SCORE = 99_999_999;
 
-// Lazy-init so a missing env var doesn't crash module load
 let _redis = null;
 function getRedis() {
-  if (!_redis) {
-    if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-      throw new Error(
-        'Missing env vars: UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN. ' +
-        'Install Upstash via Vercel Marketplace, connect to this project, then redeploy.'
-      );
-    }
-    _redis = Redis.fromEnv();
+  if (_redis) return _redis;
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  if (!url || !token) {
+    throw new Error(
+      'Missing Redis env vars. Need UPSTASH_REDIS_REST_URL/TOKEN or KV_REST_API_URL/TOKEN. ' +
+      'Install Upstash via Vercel Marketplace and connect this project, then redeploy.'
+    );
   }
+  _redis = new Redis({ url, token });
   return _redis;
 }
 
