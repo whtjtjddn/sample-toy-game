@@ -542,23 +542,23 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
   }
-  .copy-hint {
-    color: var(--cool);
-    letter-spacing: 0.5px;
-    font-size: 9px;
-    font-weight: 600;
-    opacity: 0.8;
-    transition: color 0.15s;
+  .copy-icon {
+    font-size: 12px;
+    line-height: 1;
+    opacity: 0.7;
+    transition: transform 0.15s, opacity 0.15s;
   }
-  .lobby-code-wrap.copied .copy-hint {
+  .lobby-code-wrap:hover .copy-icon { opacity: 1; transform: scale(1.1); }
+  .lobby-code-wrap.copied .copy-label-text::after {
+    content: ' · 복사됨!';
     color: #4ade80;
-    opacity: 1;
+    letter-spacing: 0.5px;
   }
-  .lobby-code-wrap.copied .copy-hint::before {
-    content: '✓ 복사됨!';
+  .lobby-code-wrap.copied .copy-icon {
+    content: '';
   }
-  .lobby-code-wrap.copied .copy-hint > * { display: none; }
   .lobby-code-value {
     font-family: 'Orbitron', sans-serif;
     font-weight: 900;
@@ -567,7 +567,7 @@
     color: var(--cool);
     text-shadow: 0 0 10px var(--cool);
     line-height: 1.1;
-    transition: text-shadow 0.2s;
+    transition: text-shadow 0.2s, color 0.2s;
   }
   .lobby-code-wrap.copied .lobby-code-value {
     color: #4ade80;
@@ -1724,7 +1724,7 @@
           <div class="vs-room-info-col">
             <div class="lobby-header">
               <button class="lobby-code-wrap" id="copyCodeBtn" type="button">
-                <div class="lobby-code-label">방 코드 <span class="copy-hint">탭하여 복사 📋</span></div>
+                <div class="lobby-code-label"><span class="copy-label-text">방 코드</span><span class="copy-icon">📋</span></div>
                 <div class="lobby-code-value" id="roomCodeLabel">----</div>
               </button>
               <div class="lobby-header-right">
@@ -3480,7 +3480,6 @@
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(roomCode);
       } else {
-        // Fallback: select + execCommand
         const ta = document.createElement('textarea');
         ta.value = roomCode;
         ta.style.position = 'fixed';
@@ -3491,11 +3490,12 @@
         document.body.removeChild(ta);
       }
       btn.classList.add('copied');
-      btn.textContent = '✓';
+      const icon = btn.querySelector('.copy-icon');
+      if (icon) icon.textContent = '✓';
       setTimeout(() => {
         btn.classList.remove('copied');
-        btn.textContent = '📋';
-      }, 1500);
+        if (icon) icon.textContent = '📋';
+      }, 1600);
     } catch (e) {
       console.warn('clipboard write failed', e);
     }
