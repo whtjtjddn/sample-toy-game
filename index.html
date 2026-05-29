@@ -361,7 +361,7 @@
   }
   /* Menu-style overlays cover the full viewport so SCORE / HOLD / etc don't show through.
    * Pause + game-over stay scoped to board-wrap so the board remains visible behind them. */
-  #startOverlay, #vsLobby, #rankingOverlay {
+  #startOverlay, #vsLobby, #rankingOverlay, #finalRankOverlay {
     position: fixed;
     inset: 0;
     z-index: 100;
@@ -538,6 +538,33 @@
     color: var(--cool);
     text-shadow: 0 0 10px var(--cool);
     line-height: 1.1;
+  }
+  .lobby-code-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .copy-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background: rgba(0,240,255,0.1);
+    border: 1px solid rgba(0,240,255,0.35);
+    color: var(--cool);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-shrink: 0;
+    transition: background 0.1s, transform 0.08s;
+  }
+  .copy-btn:active { transform: scale(0.9); background: rgba(0,240,255,0.3); }
+  .copy-btn.copied {
+    background: rgba(74,222,128,0.25);
+    border-color: #4ade80;
+    color: #4ade80;
   }
   .lobby-header-right {
     display: flex;
@@ -1050,6 +1077,93 @@
   }
   /* Hide ranking button in VS mode */
   body.vs-mode .solo-end-only { display: none !important; }
+
+  /* FINAL RANKINGS POPUP (VS post-match) */
+  .final-rank-list {
+    width: 100%;
+    max-width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px 0;
+  }
+  .final-rank-row {
+    display: grid;
+    grid-template-columns: 44px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
+    text-align: left;
+    animation: rankRowSlideIn 0.35s ease-out backwards;
+  }
+  .final-rank-row.gold {
+    border-color: var(--warn);
+    background: linear-gradient(180deg, rgba(255,225,74,0.18), rgba(255,225,74,0.04));
+    box-shadow: 0 0 12px rgba(255,225,74,0.2);
+  }
+  .final-rank-row.silver {
+    border-color: rgba(220,220,220,0.5);
+    background: rgba(220,220,220,0.08);
+  }
+  .final-rank-row.bronze {
+    border-color: rgba(205,127,50,0.6);
+    background: rgba(205,127,50,0.08);
+  }
+  .final-rank-row.me {
+    border-width: 2px;
+    box-shadow: 0 0 14px rgba(0,240,255,0.3), inset 0 0 8px rgba(0,240,255,0.08);
+  }
+  .final-rank-row .place {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 22px;
+    color: var(--dim);
+    text-align: center;
+  }
+  .final-rank-row.gold .place { color: var(--warn); text-shadow: 0 0 8px var(--warn); }
+  .final-rank-row.silver .place { color: #ddd; text-shadow: 0 0 4px #ddd; }
+  .final-rank-row.bronze .place { color: #e89651; text-shadow: 0 0 4px #cd7f32; }
+  .final-rank-row .who {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .final-rank-row .who-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .final-rank-row.me .who-name::after {
+    content: ' (나)';
+    color: var(--cool);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .final-rank-row .who-meta {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 1px;
+  }
+  .final-rank-row .pts {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--warn);
+    text-shadow: 0 0 4px rgba(255,225,74,0.3);
+  }
+  @keyframes rankRowSlideIn {
+    from { opacity: 0; transform: translateX(-12px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
   .room-input {
     background: rgba(0,0,0,0.3);
     border: 2px solid var(--line);
@@ -1418,24 +1532,27 @@
     }
     body.vs-mode .side.right {
       order: 4;
-      width: clamp(110px, 12vw, 150px); /* narrower since opponents are on the left now */
+      width: clamp(110px, 12vw, 150px);
     }
     body.vs-mode .opp-list {
       order: 1;
-      width: clamp(140px, 18vw, 220px);
+      width: clamp(220px, 24vw, 320px);
       height: 100%;
       flex-shrink: 0;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
-      grid-auto-rows: 1fr;
-      gap: 6px;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      grid-auto-rows: minmax(180px, 1fr);
+      gap: 8px;
+      align-content: start;
+      padding: 2px 0;
     }
     body.vs-mode .opp-card {
       flex: unset;
-      min-height: 0;
+      min-height: 180px;
+      max-height: 320px;
     }
-    body.vs-mode .opp-card .opp-name { font-size: 12px; }
-    body.vs-mode .opp-card .opp-stats { font-size: 11px; }
+    body.vs-mode .opp-card .opp-name { font-size: 13px; padding: 4px 6px; }
+    body.vs-mode .opp-card .opp-stats { font-size: 12px; padding: 3px 4px 5px; }
 
     /* Rank achievement on game over */
     #rankAchievement { font-size: 26px; padding: 6px 18px; }
@@ -1542,7 +1659,10 @@
             <div class="lobby-header">
               <div class="lobby-code">
                 <div class="lobby-code-label">방 코드</div>
-                <div class="lobby-code-value" id="roomCodeLabel">----</div>
+                <div class="lobby-code-row">
+                  <div class="lobby-code-value" id="roomCodeLabel">----</div>
+                  <button class="copy-btn" id="copyCodeBtn" aria-label="방 코드 복사">📋</button>
+                </div>
               </div>
               <div class="lobby-header-right">
                 <div class="room-meta" id="playerCount">1/6</div>
@@ -1595,6 +1715,14 @@
         <div class="btn-group" style="width:100%;max-width:240px">
           <button id="rankingCloseBtn">닫기</button>
           <button id="rankingClearBtn" class="ghost">로컬 기록 초기화</button>
+        </div>
+      </div>
+
+      <div class="overlay" id="finalRankOverlay">
+        <h2 style="color:var(--warn);text-shadow:0 0 12px var(--warn)">🏁 경기 결과</h2>
+        <div class="final-rank-list" id="finalRankList"></div>
+        <div class="btn-group" style="width:100%;max-width:240px">
+          <button id="finalRankCloseBtn">로비로</button>
         </div>
       </div>
     </div>
@@ -2571,8 +2699,14 @@
     Audio.play('gameover');
     Audio.stopBgm();
     if (gameMode === 'vs') {
+      // Mark self dead and compute my rank
       const me = players.get(myPlayerId);
-      if (me) me.alive = false;
+      if (me && me.alive) {
+        const aliveCount = [...players.values()].filter(x => x.alive).length;
+        me.finalRank = aliveCount;
+        me.alive = false;
+        me.score = score;
+      }
       sendOver();
       checkVsWinner();
       if (!matchResolved) showVsResult(false, true);
@@ -2605,8 +2739,14 @@
     const ov = document.getElementById('gameOverOverlay');
     ov.classList.remove('win', 'lose');
     ov.classList.add(won ? 'win' : 'lose');
-    ov.querySelector('h2').textContent = won ? 'YOU WIN!' : (isLast ? '탈락' : 'GAME OVER');
-    document.getElementById('finalScore').textContent = 'SCORE ' + score;
+    if (won) {
+      ov.querySelector('h2').textContent = '🏆 1등!';
+    } else {
+      const me = players.get(myPlayerId);
+      const rank = me?.finalRank;
+      ov.querySelector('h2').textContent = rank ? `${rank}등 탈락` : '탈락';
+    }
+    document.getElementById('finalScore').textContent = 'SCORE ' + score.toLocaleString();
     document.getElementById('rankAchievement').style.display = 'none';
     document.getElementById('restartBtn').textContent = '로비로';
     document.getElementById('restartBtn').style.opacity = '';
@@ -2679,6 +2819,7 @@
         p.alive = true;
         p.board = newGrid();
         p.score = 0; p.lines = 0; p.level = 1;
+        p.finalRank = null;
       }
       inMatch = true;
       rebuildOppList();
@@ -2746,12 +2887,14 @@
     countdownActive = false;
     matchResolved = false;
     inMatch = false;
+    document.getElementById('finalRankOverlay').classList.remove('show');
     // Reset everyone's ready (each player must re-ready)
     for (const p of players.values()) {
       p.ready = false;
       p.alive = true;
       p.board = newGrid();
       p.score = 0; p.lines = 0;
+      p.finalRank = null;
     }
     myReady = false;
     closeAllOverlays();
@@ -3258,6 +3401,43 @@
     showLobbyScreen('vsChoice');
   });
 
+  safeBind('finalRankCloseBtn', () => {
+    document.getElementById('finalRankOverlay').classList.remove('show');
+    if (gameMode === 'vs') {
+      backToLobby();
+    } else {
+      returnToMenu();
+    }
+  });
+
+  safeBind('copyCodeBtn', async () => {
+    const btn = document.getElementById('copyCodeBtn');
+    if (!roomCode || !btn) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(roomCode);
+      } else {
+        // Fallback: select + execCommand
+        const ta = document.createElement('textarea');
+        ta.value = roomCode;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      btn.classList.add('copied');
+      btn.textContent = '✓';
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.textContent = '📋';
+      }, 1500);
+    } catch (e) {
+      console.warn('clipboard write failed', e);
+    }
+  });
+
   safeBind('readyBtn', () => {
     myReady = !myReady;
     const me = players.get(myPlayerId);
@@ -3434,8 +3614,14 @@
       }
       case 'over': {
         const p = ensurePlayer(id, msg);
-        p.alive = false;
-        p.score = msg.score || p.score;
+        if (p.alive) {
+          // Rank = current alive count (last to die = highest rank number, first to die = lowest)
+          // Actually: 6 alive → first death = rank 6 (worst)
+          const aliveCount = [...players.values()].filter(x => x.alive).length;
+          p.finalRank = aliveCount;
+          p.alive = false;
+          p.score = msg.score || p.score;
+        }
         drawOpp(id);
         checkVsWinner();
         break;
@@ -3446,17 +3632,19 @@
           const leftName = p.name;
           // If they were alive in match, treat as elimination
           if (inMatch && p.alive) {
+            const aliveCount = [...players.values()].filter(x => x.alive).length;
+            p.finalRank = aliveCount;
             p.alive = false;
             drawOpp(id);
             checkVsWinner();
           }
-          players.delete(id);
-          if (oppCanvases.has(id)) {
-            const info = oppCanvases.get(id);
-            if (info.cardEl && info.cardEl.parentNode) info.cardEl.parentNode.removeChild(info.cardEl);
-            oppCanvases.delete(id);
-          }
           if (!inMatch) {
+            players.delete(id);
+            if (oppCanvases.has(id)) {
+              const info = oppCanvases.get(id);
+              if (info.cardEl && info.cardEl.parentNode) info.cardEl.parentNode.removeChild(info.cardEl);
+              oppCanvases.delete(id);
+            }
             appendChatMessage('', `${leftName} 님이 나갔어요`, false, true);
           }
           refreshPlayerList();
@@ -3519,37 +3707,74 @@
     sendMessage({ type: 'over', score });
   }
 
+  function showFinalRankings() {
+    const list = document.getElementById('finalRankList');
+    if (!list) return;
+    list.innerHTML = '';
+    const all = [...players.values()].sort((a, b) => {
+      const ra = a.finalRank || 999;
+      const rb = b.finalRank || 999;
+      if (ra !== rb) return ra - rb;
+      return (b.score || 0) - (a.score || 0);
+    });
+    all.forEach((p, i) => {
+      const row = document.createElement('div');
+      const rank = p.finalRank || (i + 1);
+      row.className = 'final-rank-row';
+      if (rank === 1) row.classList.add('gold');
+      else if (rank === 2) row.classList.add('silver');
+      else if (rank === 3) row.classList.add('bronze');
+      if (p.id === myPlayerId) row.classList.add('me');
+      row.style.animationDelay = (i * 0.08) + 's';
+      const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}`;
+      row.innerHTML = `
+        <div class="place">${medal}</div>
+        <div class="who">
+          <div class="who-name">${escapeHtml(p.name || '?')}</div>
+          <div class="who-meta">${(p.score || 0).toLocaleString()}점 · ${p.lines || 0}L</div>
+        </div>
+        <div class="pts">${rank}등</div>
+      `;
+      list.appendChild(row);
+    });
+    document.getElementById('finalRankOverlay').classList.add('show');
+    // Play celebratory sound
+    Audio.play('levelup');
+  }
+
   function checkVsWinner() {
     if (!inMatch || matchResolved) return;
     const alive = [...players.values()].filter(p => p.alive);
     if (alive.length <= 1) {
       matchResolved = true;
       inMatch = false;
-      // If exactly one survivor and it's me → win
       const survivor = alive[0];
+      if (survivor) {
+        survivor.finalRank = 1;
+        survivor.score = survivor.id === myPlayerId ? score : survivor.score;
+      }
+      // Show personal result for me first
       if (survivor && survivor.id === myPlayerId) {
         running = false; over = true;
         Audio.stopBgm();
         showVsResult(true, false);
       } else if (survivor) {
-        // Someone else won; I already saw my own death
+        // Someone else won; I already saw my own death (or I'm watching)
         if (over) {
           const ov = document.getElementById('gameOverOverlay');
           ov.classList.remove('win', 'lose');
           ov.classList.add('lose');
-          ov.querySelector('h2').textContent = `${survivor.name} 승리`;
+          const me = players.get(myPlayerId);
+          const rank = me?.finalRank || '?';
+          ov.querySelector('h2').textContent = `${rank}등`;
           document.getElementById('finalScore').textContent = 'SCORE ' + score;
           document.getElementById('rankAchievement').style.display = 'none';
           resetRestartBtn();
           ov.classList.add('show');
         }
-      } else {
-        // No survivors (tie)
-        if (over) {
-          const ov = document.getElementById('gameOverOverlay');
-          ov.classList.add('show');
-        }
       }
+      // Show full rankings after a brief delay so personal result lands first
+      setTimeout(() => showFinalRankings(), 1500);
     }
   }
 
