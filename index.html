@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#050018">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='2' width='12' height='12' fill='%2300f0ff'/%3E%3Crect x='18' y='2' width='12' height='12' fill='%23ffe14a'/%3E%3Crect x='2' y='18' width='12' height='12' fill='%23ff2e88'/%3E%3Crect x='18' y='18' width='12' height='12' fill='%23c77dff'/%3E%3C/svg%3E">
 <title>네온 테트리스 — VS</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=Noto+Sans+KR:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
@@ -259,6 +261,7 @@
     flex-direction: column;
     overflow: hidden;
     box-shadow: inset 0 0 10px rgba(255,46,136,0.06);
+    position: relative;
   }
   .opp-card .opp-name {
     font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
@@ -473,6 +476,153 @@
   #startMatchBtn:disabled {
     opacity: 0.35;
     cursor: not-allowed;
+  }
+
+  /* CHAT PANEL (lobby) */
+  .chat-panel {
+    width: 100%;
+    max-width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px;
+  }
+  .chat-messages {
+    max-height: 100px;
+    min-height: 60px;
+    overflow-y: auto;
+    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    line-height: 1.35;
+    padding: 2px 4px;
+  }
+  .chat-messages::-webkit-scrollbar { width: 4px; }
+  .chat-messages::-webkit-scrollbar-thumb { background: rgba(0,240,255,0.3); border-radius: 2px; }
+  .chat-msg { color: var(--ink); word-wrap: break-word; padding: 1px 0; }
+  .chat-msg .author {
+    color: var(--cool);
+    font-weight: 700;
+    margin-right: 5px;
+  }
+  .chat-msg.me .author { color: var(--warn); }
+  .chat-msg.system { color: var(--dim); font-style: italic; font-size: 12px; }
+  .chat-empty {
+    color: var(--dim);
+    text-align: center;
+    font-style: italic;
+    font-size: 12px;
+    padding: 8px;
+  }
+  .chat-input-row {
+    display: flex;
+    gap: 4px;
+  }
+  .chat-input-row input {
+    flex: 1;
+    min-width: 0;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--ink);
+    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    padding: 5px 8px;
+    outline: none;
+  }
+  .chat-input-row input:focus { border-color: var(--cool); }
+  .chat-input-row input::placeholder { color: var(--dim); opacity: 0.7; }
+  .chat-input-row button {
+    background: rgba(0,240,255,0.15);
+    border: 1px solid rgba(0,240,255,0.5);
+    border-radius: 4px;
+    color: var(--cool);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 4px 10px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+  }
+  .chat-input-row button:active { background: rgba(0,240,255,0.3); }
+
+  /* EMOTE DOCK (in-game) */
+  .emote-dock {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    align-items: center;
+    padding: 4px 0 0;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .emote-btn {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--ink);
+    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    padding: 4px 0;
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
+    max-width: 56px;
+    transition: transform 0.08s, background 0.08s;
+    line-height: 1.2;
+  }
+  .emote-btn:active {
+    transform: scale(0.9);
+    background: rgba(0,240,255,0.18);
+  }
+
+  /* EMOTE BUBBLE (over board / opp card) */
+  .emote-bubble {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 50;
+  }
+  .emote-bubble-item {
+    background: rgba(255,255,255,0.96);
+    color: #1a0040;
+    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
+    font-weight: 900;
+    font-size: 24px;
+    padding: 6px 14px;
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5), 0 0 18px rgba(0,240,255,0.2);
+    white-space: nowrap;
+    animation: emoteFloat 2.5s ease-out forwards;
+  }
+  @keyframes emoteFloat {
+    0% { opacity: 0; transform: translateY(8px) scale(0.4); }
+    15% { opacity: 1; transform: translateY(0) scale(1); }
+    80% { opacity: 1; transform: translateY(-12px) scale(1); }
+    100% { opacity: 0; transform: translateY(-32px) scale(0.9); }
+  }
+  /* Smaller emote bubble over opponent card */
+  .opp-card .opp-emote {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 50;
+  }
+  .opp-card .opp-emote .emote-bubble-item {
+    font-size: 16px;
+    padding: 3px 8px;
+    border-radius: 10px;
   }
   .room-meta {
     font-family: 'Rajdhani', sans-serif;
@@ -1070,6 +1220,7 @@
       <div class="gesture-hint" id="gestureHint">탭=회전 · 좌우=이동 · ↓느리게=소프트 · ↓빠르게=하드</div>
       <div class="level-up-banner" id="levelUpBanner"><span id="levelUpText">LEVEL 2</span></div>
       <div class="countdown-overlay" id="countdownOverlay"><span id="countdownText">3</span></div>
+      <div class="emote-bubble" id="myEmoteBubble"></div>
 
       <div class="overlay start show" id="startOverlay">
         <h2>TETRIS</h2>
@@ -1120,6 +1271,13 @@
               <button data-mode="random" type="button">무작위</button>
             </div>
           </div>
+          <div class="chat-panel">
+            <div class="chat-messages" id="chatMessages"></div>
+            <form class="chat-input-row" id="chatForm" autocomplete="off">
+              <input type="text" id="chatInput" placeholder="메시지 입력..." maxlength="80" autocomplete="off">
+              <button type="submit" id="chatSendBtn">전송</button>
+            </form>
+          </div>
           <div class="btn-group" style="width:100%;max-width:240px">
             <button id="readyBtn">준비</button>
             <button id="startMatchBtn" style="display:none">시작</button>
@@ -1165,6 +1323,15 @@
       </div>
       <div class="vs-only opp-list" id="oppList"></div>
     </div>
+  </div>
+
+  <div class="emote-dock vs-only">
+    <button class="emote-btn" data-emote="fire" type="button">🔥</button>
+    <button class="emote-btn" data-emote="sweat" type="button">😅</button>
+    <button class="emote-btn" data-emote="cool" type="button">😎</button>
+    <button class="emote-btn" data-emote="dead" type="button">💀</button>
+    <button class="emote-btn" data-emote="gg" type="button">GG</button>
+    <button class="emote-btn" data-emote="good" type="button">👍</button>
   </div>
 
   <div class="controls">
@@ -2528,6 +2695,7 @@
     refreshReadyBtn();
     refreshStartBtn();
     refreshAttackModeUI();
+    clearChat();
 
     connectMqtt().then(() => {
       document.getElementById('roomDot').className = 'conn-dot ok';
@@ -2614,6 +2782,104 @@
       btn.classList.toggle('active', btn.dataset.mode === attackMode);
     }
   }
+
+  // ===== Chat (lobby) =====
+  function appendChatMessage(name, text, isMe, isSystem) {
+    const container = document.getElementById('chatMessages');
+    if (!container) return;
+    // Remove empty placeholder
+    const empty = container.querySelector('.chat-empty');
+    if (empty) empty.remove();
+    const div = document.createElement('div');
+    div.className = 'chat-msg' + (isMe ? ' me' : '') + (isSystem ? ' system' : '');
+    if (isSystem) {
+      div.textContent = text;
+    } else {
+      div.innerHTML = `<span class="author">${escapeHtml(name)}</span>${escapeHtml(text)}`;
+    }
+    container.appendChild(div);
+    while (container.children.length > 50) container.firstChild.remove();
+    container.scrollTop = container.scrollHeight;
+  }
+  function clearChat() {
+    const container = document.getElementById('chatMessages');
+    if (container) container.innerHTML = '<div class="chat-empty">대화를 시작해보세요</div>';
+  }
+  function sendChat() {
+    const input = document.getElementById('chatInput');
+    if (!input) return;
+    const text = input.value.trim().slice(0, 80);
+    input.value = '';
+    if (!text) return;
+    if (!mqttClient || !mqttClient.connected) return;
+    sendMessage({ type: 'chat', name: myName, text });
+    appendChatMessage(myName, text, true, false);
+  }
+
+  // ===== Emotes (in-game) =====
+  const EMOTES = {
+    fire: '🔥', sweat: '😅', cool: '😎',
+    dead: '💀', gg: 'GG', good: '👍',
+  };
+  const emoteTimers = new Map(); // pid -> timer
+
+  function showEmote(pid, code) {
+    const text = EMOTES[code];
+    if (!text) return;
+    let bubbleContainer;
+    if (pid === myPlayerId) {
+      bubbleContainer = document.getElementById('myEmoteBubble');
+    } else {
+      const info = oppCanvases.get(pid);
+      if (!info || !info.cardEl) return;
+      bubbleContainer = info.cardEl.querySelector('.opp-emote');
+      if (!bubbleContainer) {
+        bubbleContainer = document.createElement('div');
+        bubbleContainer.className = 'opp-emote';
+        info.cardEl.appendChild(bubbleContainer);
+      }
+    }
+    if (!bubbleContainer) return;
+    bubbleContainer.innerHTML = '';
+    const item = document.createElement('div');
+    item.className = 'emote-bubble-item';
+    item.textContent = text;
+    bubbleContainer.appendChild(item);
+    // Replace any pending clear timer
+    const existing = emoteTimers.get(pid);
+    if (existing) clearTimeout(existing);
+    emoteTimers.set(pid, setTimeout(() => {
+      if (item.parentNode) item.remove();
+      emoteTimers.delete(pid);
+    }, 2600));
+  }
+
+  // Bind chat form
+  (() => {
+    const form = document.getElementById('chatForm');
+    const input = document.getElementById('chatInput');
+    if (form) {
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        sendChat();
+      });
+    }
+    if (input) {
+      // Prevent game keyboard shortcuts from firing while typing
+      input.addEventListener('keydown', e => e.stopPropagation());
+      input.addEventListener('keyup', e => e.stopPropagation());
+    }
+  })();
+
+  // Bind emote buttons
+  document.querySelectorAll('.emote-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.dataset.emote;
+      if (!code) return;
+      sendMessage({ type: 'emote', code });
+      showEmote(myPlayerId, code);
+    });
+  });
 
   safeBind('vsBtn', () => {
     if (typeof mqtt === 'undefined') {
@@ -2854,6 +3120,16 @@
         }
         break;
       }
+      case 'chat': {
+        const p = ensurePlayer(id, msg);
+        appendChatMessage(p.name, String(msg.text || '').slice(0, 200), false);
+        break;
+      }
+      case 'emote': {
+        ensurePlayer(id, msg);
+        showEmote(id, String(msg.code || ''));
+        break;
+      }
     }
   }
 
@@ -3044,9 +3320,11 @@
         if (!Array.isArray(data.leaderboard)) throw new Error('bad payload');
         onlineMode = true;
         saveCache(data.leaderboard);
+        console.info('[ranking] online OK — fetched', data.leaderboard.length, 'entries');
         return data.leaderboard;
       } catch (e) {
         onlineMode = false;
+        console.warn('[ranking] online fetch failed, falling back to local:', e.message || e);
         return null;
       }
     }
@@ -3058,13 +3336,18 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(entry),
         });
-        if (!res.ok) throw new Error('http ' + res.status);
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '');
+          throw new Error('http ' + res.status + ' ' + errText.slice(0, 80));
+        }
         const data = await res.json();
         onlineMode = true;
         if (Array.isArray(data.leaderboard)) saveCache(data.leaderboard);
-        return data; // { rank, leaderboard }
+        console.info('[ranking] online submit OK — rank', data.rank);
+        return data;
       } catch (e) {
         onlineMode = false;
+        console.warn('[ranking] online submit failed, saving locally:', e.message || e);
         return null;
       }
     }
