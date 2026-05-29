@@ -1,30 +1,33 @@
-// /api/rankings.js  — Vercel serverless function
-// Provides GET (top scores) and POST (submit score) backed by Vercel KV.
+// /api/rankings.js  — Vercel serverless function using Upstash Redis
 //
 // Setup (one-time):
-// 1) In your Vercel project dashboard → Storage → Create → KV
-//    Name it anything (e.g. "rankings"). Connect it to this project.
-//    Vercel auto-adds KV_* env vars to your project.
-// 2) npm install @vercel/kv
-// 3) Commit + push. Endpoint will be at /api/rankings.
+// 1) In Vercel dashboard → Storage tab → Marketplace Database Providers
+//    Find "Upstash" → Install (or visit https://vercel.com/marketplace/upstash)
+// 2) Pick "Let Vercel manage your Upstash account" (simpler) and create a new Redis DB
+//    Free tier: ~500K commands/month
+// 3) Connect to this project. Vercel auto-injects env vars:
+//      UPSTASH_REDIS_REST_URL
+//      UPSTASH_REDIS_REST_TOKEN
+// 4) Locally: npm install @upstash/redis
+// 5) Redeploy the project so env vars become available to the function.
 
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
+
+const redis = Redis.fromEnv();
 
 const KEY = 'tetris:leaderboard:v1';
-const MAX_STORED = 100;   // keep top 100 on server
-const MAX_RETURN = 20;    // return top 20 to client
+const MAX_STORED = 100;
+const MAX_RETURN = 20;
 const MIN_SCORE = 1;
 const MAX_SCORE = 99_999_999;
 
 function sanitizeName(raw) {
   if (typeof raw !== 'string') return '익명';
-  // Keep letters/digits/Hangul/spaces/dashes; trim to 16 chars
   const cleaned = raw.replace(/[^\w가-힣\- ]/g, '').trim();
   return cleaned.slice(0, 16) || '익명';
 }
 
 export default async function handler(req, res) {
-  // CORS — allow your own domain only in production if you want.
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -34,7 +37,7 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const list = (await kv.get(KEY)) || [];
+      const list = (await redis.get(KEY)) || [];
       return res.status(200).json({ leaderboard: list.slice(0, MAX_RETURN) });
     }
 
@@ -63,11 +66,11 @@ export default async function handler(req, res) {
         date: Date.now(),
       };
 
-      const list = (await kv.get(KEY)) || [];
+      const list = (await redis.get(KEY)) || [];
       list.push(entry);
       list.sort((a, b) => b.score - a.score);
       const trimmed = list.slice(0, MAX_STORED);
-      await kv.set(KEY, trimmed);
+      await redis.set(KEY, trimmed);
 
       const rank = trimmed.findIndex(
         e => e.date === entry.date && e.score === entry.score && e.name === entry.name
@@ -82,6 +85,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'method not allowed' });
   } catch (err) {
     console.error('rankings api error', err);
-    return res.status(500).json({ error: 'server error' });
+    return res.status(500).json({ error: 'server error', detail: String(err && err.message || err) });
   }
 }
