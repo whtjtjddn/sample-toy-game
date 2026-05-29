@@ -1362,10 +1362,25 @@
     color: var(--ink);
     line-height: 1;
   }
+  .mvs-right-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+  }
+  .mvs-hold-wrap {
+    display: flex;
+    align-items: center;
+    padding-right: 10px;
+    border-right: 1px solid var(--line);
+  }
+  .mvs-hold-canvas {
+    width: 36px;
+    height: 26px;
+  }
   .mvs-next-pieces {
     display: flex;
     gap: 6px;
-    margin-left: auto;
     align-items: center;
   }
   .mvs-next-canvas {
@@ -1646,17 +1661,20 @@
      * [ Opponents | HOLD/Stats | My Board | NEXT ]
      * ============================================================ */
     /* ============================================================
-     * DESKTOP VS — Hangame-style layout:
-     *   [ Opps 2x3 grid | HOLD/Stats | NEXT | MY BOARD ]
+     * DESKTOP VS — BLOCKMVP-style layout:
+     *   [ HOLD/Stats | MY BOARD | NEXT | Opps 2x3 grid ]
      * 5 opp slots always (empty placeholders when fewer players).
      * ============================================================ */
     body.vs-mode .play-area {
       gap: 14px;
     }
+    body.vs-mode .side.left { order: 1; }
+    body.vs-mode .board-wrap { order: 2; }
+    body.vs-mode .side.right { order: 3; width: clamp(90px, 10vw, 120px); }
     body.vs-mode .opp-list {
       position: static;
-      order: 1;
-      width: clamp(240px, 24vw, 340px);
+      order: 4;
+      width: clamp(260px, 24vw, 340px);
       height: 100%;
       flex-shrink: 0;
       background: linear-gradient(180deg, rgba(120, 80, 220, 0.08), rgba(120, 80, 220, 0.02));
@@ -1670,9 +1688,6 @@
       backdrop-filter: blur(2px);
       -webkit-backdrop-filter: blur(2px);
     }
-    body.vs-mode .side.left { order: 2; }
-    body.vs-mode .side.right { order: 3; width: clamp(110px, 12vw, 150px); }
-    body.vs-mode .board-wrap { order: 4; }
 
     body.vs-mode .opp-card {
       flex: unset;
@@ -1760,9 +1775,14 @@
       <span class="mvs-label">LINES</span>
       <span class="mvs-value" id="linesMobile">0</span>
     </div>
-    <div class="mvs-next-pieces">
-      <canvas class="mvs-next-canvas" id="nextMini1"></canvas>
-      <canvas class="mvs-next-canvas" id="nextMini2"></canvas>
+    <div class="mvs-right-group">
+      <div class="mvs-hold-wrap" aria-label="HOLD">
+        <canvas class="mvs-next-canvas mvs-hold-canvas" id="holdMini"></canvas>
+      </div>
+      <div class="mvs-next-pieces">
+        <canvas class="mvs-next-canvas" id="nextMini1"></canvas>
+        <canvas class="mvs-next-canvas" id="nextMini2"></canvas>
+      </div>
     </div>
   </div>
 
@@ -1959,13 +1979,14 @@
   const vsPreview = { canvas: document.getElementById('vsNext'), ctx: null, cell: 9 };
   vsPreview.ctx = vsPreview.canvas.getContext('2d');
   const holdEl = { canvas: holdView, ctx: hctx, cell: 9 };
+  const holdMobileCanvas = document.getElementById('holdMini');
+  const holdMobileEl = holdMobileCanvas ? { canvas: holdMobileCanvas, ctx: holdMobileCanvas.getContext('2d'), cell: 6 } : null;
 
   let BLOCK = 24, dpr = 1;
 
   function sizeMini(el) {
     const box = el.canvas.parentElement;
-    // Mobile mini next canvases: parent is .mvs-next-pieces (flex row), size via CSS.
-    // Set canvas backing store directly from the CSS-computed size.
+    // Mobile mini canvases (HOLD + NEXT): parent uses flex row, size via CSS.
     if (el.canvas.classList.contains('mvs-next-canvas')) {
       const w = el.canvas.clientWidth, h = el.canvas.clientHeight;
       if (w === 0 || h === 0) return;
@@ -2022,6 +2043,7 @@
     soloPreviews.forEach(sizeMini);
     sizeMini(vsPreview);
     sizeMini(holdEl);
+    if (holdMobileEl) sizeMini(holdMobileEl);
     if (gameMode === 'vs') sizeOppCards();
     draw();
     drawAllOpps();
@@ -2802,7 +2824,10 @@
       if (soloPreviews[3]) drawMini(soloPreviews[3], queue[1] || null);
     }
   }
-  function drawHold() { drawMini(holdEl, hold, !canHold); }
+  function drawHold() {
+    drawMini(holdEl, hold, !canHold);
+    if (holdMobileEl) drawMini(holdMobileEl, hold, !canHold);
+  }
 
   function drawOpp(pid) {
     const info = oppCanvases.get(pid);
