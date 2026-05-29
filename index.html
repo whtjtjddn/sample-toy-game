@@ -713,6 +713,18 @@
     text-align: right;
   }
   .nickname-row input::placeholder { color: var(--dim); opacity: 0.7; }
+  .nickname-row.error {
+    animation: nicknameShake 0.5s ease-in-out;
+    border-color: var(--hot) !important;
+    background: rgba(255,46,136,0.12) !important;
+    box-shadow: 0 0 14px rgba(255,46,136,0.4);
+  }
+  .nickname-row.error label { color: var(--hot); }
+  @keyframes nicknameShake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+  }
 
   .ranking-status {
     font-family: 'Rajdhani', sans-serif;
@@ -2635,7 +2647,23 @@
     doHold();
   });
 
+  function requireNickname() {
+    const input = document.getElementById('nicknameInput');
+    if (!input) return true;
+    if (input.value.trim().length === 0) {
+      const row = input.closest('.nickname-row');
+      if (row) {
+        row.classList.add('error');
+        setTimeout(() => row.classList.remove('error'), 800);
+      }
+      input.focus();
+      return false;
+    }
+    return true;
+  }
+
   safeBind('startBtn', () => {
+    if (!requireNickname()) return;
     gameMode = 'solo';
     document.body.classList.remove('vs-mode');
     setTimeout(() => { fitCanvas(); startGame(); }, 30);
@@ -2886,6 +2914,7 @@
       alert('MQTT 라이브러리를 불러올 수 없습니다. 인터넷 연결을 확인하세요.');
       return;
     }
+    if (!requireNickname()) return;
     document.getElementById('startOverlay').classList.remove('show');
     document.getElementById('vsLobby').classList.add('show');
     showLobbyScreen('vsChoice');
@@ -3536,20 +3565,23 @@
     if (!input) return;
     input.value = (myName === AUTO_NAME) ? '' : myName;
     input.placeholder = AUTO_NAME;
+    let composing = false;
     function sanitize(raw) {
-      return String(raw || '').replace(/[^\w가-힣\- ]/g, '').slice(0, 16);
+      // Allow alpha-numeric, full Hangul syllables, Hangul jamo (compatibility + conjoining), space, hyphen
+      return String(raw || '').replace(/[^\w가-힣\u3131-\u318E\u1100-\u11FF\- ]/g, '').slice(0, 16);
     }
     function commit() {
       const cleaned = sanitize(input.value).trim();
       myName = cleaned || AUTO_NAME;
       try { localStorage.setItem(NICK_KEY, cleaned); } catch (e) {}
-      // Reflect cleaned value back if it changed
-      if (cleaned !== input.value) input.value = cleaned;
+      if (cleaned !== input.value && !composing) input.value = cleaned;
     }
-    input.addEventListener('input', commit);
+    input.addEventListener('compositionstart', () => { composing = true; });
+    input.addEventListener('compositionend', () => { composing = false; commit(); });
+    input.addEventListener('input', () => { if (!composing) commit(); });
     input.addEventListener('blur', commit);
-    // Prevent the spacebar from triggering the keyboard "start game" handler
     input.addEventListener('keydown', e => e.stopPropagation());
+    input.addEventListener('keyup', e => e.stopPropagation());
   })();
 
   // Probe ranking server in background so the online/offline status is known
