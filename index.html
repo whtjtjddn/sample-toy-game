@@ -529,6 +529,41 @@
   }
 
   /* RANKING */
+  .nickname-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0,240,255,0.06);
+    border: 1px solid rgba(0,240,255,0.35);
+    border-radius: 8px;
+    padding: 6px 12px;
+    width: 100%;
+    max-width: 260px;
+  }
+  .nickname-row label {
+    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--cool);
+    letter-spacing: 2px;
+    flex-shrink: 0;
+  }
+  .nickname-row input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--ink);
+    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    flex: 1;
+    min-width: 0;
+    padding: 4px 0;
+    letter-spacing: 0.5px;
+    text-align: right;
+  }
+  .nickname-row input::placeholder { color: var(--dim); opacity: 0.7; }
+
   .ranking-status {
     font-family: 'Rajdhani', sans-serif;
     font-weight: 700;
@@ -796,6 +831,199 @@
     .side { width: 56px; }
     .panel-stat-value { font-size: 18px; }
   }
+
+  /* Show mobile hint by default; swap to desktop on wide screens */
+  .desktop-hint { display: none; }
+  /* Generic desktop-only utility — hidden on mobile, shown via desktop media query */
+  .desktop-only { display: none !important; }
+
+  /* TIME pill (desktop only) */
+  .time-pill {
+    background: linear-gradient(180deg, rgba(0,240,255,0.14), rgba(0,240,255,0.03));
+    border: 2px solid rgba(0,240,255,0.4);
+    border-radius: 12px;
+    padding: 0 18px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    flex-shrink: 0;
+    box-shadow: 0 0 10px rgba(0,240,255,0.1);
+  }
+  .time-pill .label {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--cool);
+    letter-spacing: 2px;
+    line-height: 1;
+  }
+  .time-pill .value {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--ink);
+    text-shadow: 0 0 6px rgba(0,240,255,0.4);
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+
+  /* BEST score (desktop only — added inside score-badge) */
+  .best-meta {
+    border-left: 1px solid rgba(255,225,74,0.3);
+    padding-left: 14px;
+    margin-left: 4px;
+    flex-direction: column;
+    justify-content: center;
+    align-self: center;
+    height: 70%;
+    flex-shrink: 0;
+  }
+  .best-meta .label {
+    color: var(--dim) !important;
+  }
+  .best-meta .value {
+    font-size: 18px !important;
+    color: rgba(255,225,74,0.75) !important;
+    text-shadow: 0 0 4px rgba(255,225,74,0.3) !important;
+  }
+
+  /* ============================================================ */
+  /* DESKTOP / TABLET LAYOUT — min-width 768px                   */
+  /* Wider panels, larger fonts, keyboard-first (no touch HOLD)  */
+  /* ============================================================ */
+  @media (min-width: 768px) and (min-height: 600px) {
+    .app {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 18px 24px;
+      gap: 12px;
+    }
+
+    /* Top bar — bigger badge, roomier */
+    .topbar { height: 56px; gap: 10px; }
+    .score-badge { padding: 0 18px; gap: 14px; border-radius: 12px; }
+    .score-badge .medal { width: 40px; height: 40px; font-size: 22px; }
+    .score-meta .label { font-size: 12px; letter-spacing: 3px; margin-bottom: 3px; }
+    .score-meta .value { font-size: 30px; }
+    .icon-btn { width: 56px; font-size: 22px; border-radius: 12px; }
+
+    /* Play area & panels — wider sides for readable labels */
+    .play-area { gap: 14px; }
+    .side {
+      width: clamp(120px, 13vw, 160px);
+      gap: 10px;
+    }
+    .panel { border-radius: 12px; }
+    .panel-label { font-size: 14px; padding: 7px 4px; letter-spacing: 3px; }
+    .panel-canvas { height: clamp(90px, 9.5vw, 120px); padding: 8px; }
+    .panel-stat-value { font-size: 38px; padding: 14px 4px; }
+
+    /* Hide touch controls + bottom gesture hint */
+    .controls { display: none; }
+    .gesture-hint { display: none; }
+
+    /* Hint swap on start screen */
+    .mobile-hint { display: none; }
+    .desktop-hint { display: block; }
+
+    /* Show desktop-only elements (TIME pill, BEST, extra NEXT pieces) */
+    .desktop-only { display: flex !important; }
+
+    /* Overlay text */
+    .overlay h2 { font-size: 40px; letter-spacing: 4px; }
+    .overlay p { font-size: 18px; }
+    .overlay .hint { font-size: 15px; line-height: 1.8; }
+    .overlay button {
+      font-size: 22px; padding: 12px 38px; border-radius: 8px;
+    }
+    .overlay button.ghost { font-size: 16px; padding: 7px 22px; }
+
+    /* Countdown bigger */
+    .countdown-overlay span { font-size: 180px; }
+    .level-up-banner { font-size: clamp(48px, 5.5vw, 72px); }
+
+    /* Lobby / VS panels */
+    .room-code { font-size: 56px; letter-spacing: 8px; padding: 12px 28px; }
+    .room-code-inline { font-size: 1.05em; padding: 3px 12px; }
+    .room-input { font-size: 36px; width: 260px; padding: 10px 14px; }
+    .player-list { max-width: 360px; max-height: 260px; padding: 10px; }
+    .player-item { font-size: 16px; padding: 8px 12px; }
+    .player-item .badge { font-size: 11px; padding: 2px 7px; }
+    .attack-mode-row { font-size: 15px; }
+    .attack-mode-toggle button { font-size: 15px; padding: 7px 18px; }
+
+    /* Ranking on desktop */
+    .ranking-list { max-width: 400px; max-height: 56vh; }
+    .rank-row {
+      padding: 9px 14px;
+      grid-template-columns: 40px 1fr auto;
+      gap: 12px;
+    }
+    .rank-row .rank-num { font-size: 22px; }
+    .rank-row .rank-score { font-size: 22px; }
+    .rank-row .rank-name { font-size: 13px; }
+    .rank-row .rank-meta { font-size: 13px; }
+
+    /* Nickname */
+    .nickname-row { max-width: 320px; padding: 8px 16px; }
+    .nickname-row label { font-size: 12px; }
+    .nickname-row input { font-size: 18px; }
+
+    /* Opponent cards — a bit more room */
+    .opp-card .opp-name { font-size: 13px; padding: 4px 6px; }
+    .opp-card .opp-stats { font-size: 12px; padding: 2px 4px 4px; }
+    .opp-ko { font-size: 24px; }
+
+    /* ============================================================
+     * VS mode on desktop — Hangame-style layout:
+     * [ Opponents | HOLD/Stats | My Board | NEXT ]
+     * ============================================================ */
+    body.vs-mode .play-area {
+      gap: 14px;
+    }
+    /* Inject an opponents column to the far left, before .side.left */
+    body.vs-mode .side.left {
+      order: 2;
+    }
+    body.vs-mode .board-wrap {
+      order: 3;
+    }
+    body.vs-mode .side.right {
+      order: 4;
+      width: clamp(110px, 12vw, 150px); /* narrower since opponents are on the left now */
+    }
+    body.vs-mode .opp-list {
+      order: 1;
+      width: clamp(140px, 18vw, 220px);
+      height: 100%;
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+      grid-auto-rows: 1fr;
+      gap: 6px;
+    }
+    body.vs-mode .opp-card {
+      flex: unset;
+      min-height: 0;
+    }
+    body.vs-mode .opp-card .opp-name { font-size: 12px; }
+    body.vs-mode .opp-card .opp-stats { font-size: 11px; }
+
+    /* Rank achievement on game over */
+    #rankAchievement { font-size: 26px; padding: 6px 18px; }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .gesture-hint { display: none; }
+  }
+
+  /* Even wider — give breathing room */
+  @media (min-width: 1200px) {
+    .side { width: clamp(140px, 13vw, 170px); }
+    .panel-stat-value { font-size: 44px; }
+    .panel-canvas { height: clamp(100px, 10vw, 130px); }
+  }
 </style>
 </head>
 <body>
@@ -808,6 +1036,14 @@
         <div class="label">SCORE</div>
         <div class="value" id="score">0</div>
       </div>
+      <div class="score-meta best-meta">
+        <div class="label">BEST</div>
+        <div class="value" id="bestScore">0</div>
+      </div>
+    </div>
+    <div class="time-pill desktop-only">
+      <div class="label">TIME</div>
+      <div class="value" id="gameTime">00:00</div>
     </div>
     <button class="icon-btn" id="soundBtn" aria-label="소리">♪</button>
     <button class="icon-btn" id="pauseBtn" aria-label="일시정지">II</button>
@@ -837,12 +1073,21 @@
 
       <div class="overlay start show" id="startOverlay">
         <h2>TETRIS</h2>
-        <div class="hint">
+        <div class="nickname-row">
+          <label for="nicknameInput">닉네임</label>
+          <input type="text" id="nicknameInput" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <div class="hint mobile-hint">
           <b>탭</b> = 회전<br>
           <b>좌·우 드래그</b> = 이동<br>
           <b>↓ 천천히 드래그</b> = 소프트 드롭<br>
           <b>↓ 빠르게 플릭</b> = 하드 드롭<br>
           <b>아래 버튼</b> = HOLD
+        </div>
+        <div class="hint desktop-hint">
+          <b>← →</b> 이동 · <b>↑ / X</b> 회전 · <b>Z</b> 반시계<br>
+          <b>↓</b> 소프트 드롭 · <b>스페이스</b> 하드 드롭<br>
+          <b>C / Shift</b> HOLD · <b>P</b> 일시정지
         </div>
         <div class="btn-group">
           <button id="startBtn">솔로 플레이</button>
@@ -912,7 +1157,6 @@
         <div class="panel-label">NEXT</div>
         <div class="panel-canvas"><canvas class="mini" id="next1"></canvas></div>
         <div class="panel-canvas"><canvas class="mini" id="next2"></canvas></div>
-        <div class="panel-canvas"><canvas class="mini" id="next3"></canvas></div>
       </div>
 
       <div class="vs-only panel next">
@@ -954,7 +1198,6 @@
   const soloPreviews = [
     { canvas: document.getElementById('next1'), ctx: null, cell: 9 },
     { canvas: document.getElementById('next2'), ctx: null, cell: 9 },
-    { canvas: document.getElementById('next3'), ctx: null, cell: 9 },
   ];
   soloPreviews.forEach(p => p.ctx = p.canvas.getContext('2d'));
   const vsPreview = { canvas: document.getElementById('vsNext'), ctx: null, cell: 9 };
@@ -1000,7 +1243,8 @@
     const wrap = document.getElementById('boardWrap');
     const w = wrap.clientWidth, h = wrap.clientHeight;
     const cell = Math.floor(Math.min(w / COLS, h / ROWS));
-    BLOCK = Math.max(12, cell);
+    // Floor of 12px for legibility; cap at 44px to avoid an oversized board on wide desktops
+    BLOCK = Math.min(44, Math.max(12, cell));
     dpr = Math.min(window.devicePixelRatio || 1, 2);
     board.style.width = (BLOCK * COLS) + 'px';
     board.style.height = (BLOCK * ROWS) + 'px';
@@ -1071,6 +1315,11 @@
   let lastTime = 0;
   let running = false, paused = false, over = false;
   let rafId = null;
+  // Solo timer
+  let gameStartTime = 0;
+  let pausedDuration = 0;
+  let pauseStart = 0;
+  let lastTimeUpdate = 0;
 
   // FX state
   let clearing = null;
@@ -1080,7 +1329,11 @@
   // VS state — multi-player
   let mqttClient = null;
   let myPlayerId = 'p' + Math.random().toString(36).slice(2, 8);
-  let myName = 'P-' + myPlayerId.slice(1, 5).toUpperCase();
+  const AUTO_NAME = 'P-' + myPlayerId.slice(1, 5).toUpperCase();
+  let myName = (() => {
+    try { return localStorage.getItem('tetris-nickname-v1') || AUTO_NAME; }
+    catch { return AUTO_NAME; }
+  })();
   let roomCode = null;
   let isHost = false;
   let myReady = false;
@@ -1823,6 +2076,33 @@
     document.getElementById('level').textContent = level;
   }
 
+  function formatTime(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const m = Math.floor(s / 60);
+    const ss = s % 60;
+    return String(m).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
+  }
+
+  function updateTimeDisplay() {
+    const el = document.getElementById('gameTime');
+    if (!el) return;
+    if (gameStartTime === 0) {
+      el.textContent = '00:00';
+      return;
+    }
+    const elapsed = running && !paused
+      ? Date.now() - gameStartTime - pausedDuration
+      : (gameStartTime === 0 ? 0 : (pauseStart || Date.now()) - gameStartTime - pausedDuration);
+    el.textContent = formatTime(elapsed);
+  }
+
+  function updateBest() {
+    const el = document.getElementById('bestScore');
+    if (!el) return;
+    const top = Ranking.topScore();
+    el.textContent = top ? top.toLocaleString() : '0';
+  }
+
   function updateOppStats() {
     // Stats are updated inline within drawOpp() now
     drawAllOpps();
@@ -1858,7 +2138,10 @@
         const top = Ranking.topScore();
         const topStr = top > 0 ? `<div style="font-size:13px;color:var(--dim);margin-top:6px">최고 기록 ${top.toLocaleString()}</div>` : '';
         document.getElementById('finalScore').innerHTML = `SCORE ${score.toLocaleString()}${topStr}`;
+        updateBest();
       }
+      // Freeze timer at final value
+      updateTimeDisplay();
     }
   }
 
@@ -1904,6 +2187,12 @@
           lastBroadcast = 0;
         }
       }
+      // Update TIME display once a second to avoid layout thrash
+      const nowMs = Date.now();
+      if (nowMs - lastTimeUpdate >= 1000) {
+        lastTimeUpdate = nowMs;
+        updateTimeDisplay();
+      }
       draw();
     }
     rafId = requestAnimationFrame(loop);
@@ -1921,6 +2210,13 @@
     clearing = null; popups = []; shake = 0; boardFlash = 0;
     pendingAttacks = [];
     lastAttackerId = null;
+    // Reset timer
+    gameStartTime = Date.now();
+    pausedDuration = 0;
+    pauseStart = 0;
+    lastTimeUpdate = 0;
+    updateTimeDisplay();
+    updateBest();
     if (gameMode === 'vs') {
       // Reset all players' in-match state
       for (const p of players.values()) {
@@ -1960,8 +2256,15 @@
   function togglePause() {
     if (!running || over) return;
     paused = !paused;
+    if (paused) {
+      pauseStart = Date.now();
+      Audio.pauseBgm();
+    } else {
+      if (pauseStart) pausedDuration += Date.now() - pauseStart;
+      pauseStart = 0;
+      Audio.resumeBgm();
+    }
     document.getElementById('pauseOverlay').classList.toggle('show', paused);
-    if (paused) Audio.pauseBgm(); else Audio.resumeBgm();
   }
 
   function returnToMenu() {
@@ -2917,15 +3220,59 @@
     lastTouchEnd = now;
   }, {passive: false});
 
+  // Reposition opp-list based on viewport: nested in right panel on mobile,
+  // promoted to top-level column on desktop for the Hangame-style layout.
+  const desktopMQ = window.matchMedia('(min-width: 768px) and (min-height: 600px)');
+  function repositionOppList() {
+    const oppList = document.getElementById('oppList');
+    const rightPanel = document.getElementById('rightPanel');
+    const playArea = document.querySelector('.play-area');
+    if (!oppList || !rightPanel || !playArea) return;
+    if (desktopMQ.matches) {
+      if (oppList.parentElement !== playArea) playArea.appendChild(oppList);
+    } else {
+      if (oppList.parentElement !== rightPanel) rightPanel.appendChild(oppList);
+    }
+  }
+  desktopMQ.addEventListener('change', () => {
+    repositionOppList();
+    setTimeout(fitCanvas, 50);
+  });
+
   window.addEventListener('beforeunload', () => disconnectMqtt());
-  window.addEventListener('resize', fitCanvas);
-  window.addEventListener('orientationchange', () => setTimeout(fitCanvas, 100));
+  window.addEventListener('resize', () => { repositionOppList(); fitCanvas(); });
+  window.addEventListener('orientationchange', () => setTimeout(() => { repositionOppList(); fitCanvas(); }, 100));
 
   grid = newGrid();
-  requestAnimationFrame(() => { fitCanvas(); draw(); });
+  requestAnimationFrame(() => { repositionOppList(); fitCanvas(); draw(); });
+
+  // Nickname input — saved to localStorage; updates myName live
+  (() => {
+    const NICK_KEY = 'tetris-nickname-v1';
+    const input = document.getElementById('nicknameInput');
+    if (!input) return;
+    input.value = (myName === AUTO_NAME) ? '' : myName;
+    input.placeholder = AUTO_NAME;
+    function sanitize(raw) {
+      return String(raw || '').replace(/[^\w가-힣\- ]/g, '').slice(0, 16);
+    }
+    function commit() {
+      const cleaned = sanitize(input.value).trim();
+      myName = cleaned || AUTO_NAME;
+      try { localStorage.setItem(NICK_KEY, cleaned); } catch (e) {}
+      // Reflect cleaned value back if it changed
+      if (cleaned !== input.value) input.value = cleaned;
+    }
+    input.addEventListener('input', commit);
+    input.addEventListener('blur', commit);
+    // Prevent the spacebar from triggering the keyboard "start game" handler
+    input.addEventListener('keydown', e => e.stopPropagation());
+  })();
 
   // Probe ranking server in background so the online/offline status is known
-  Ranking.refresh();
+  // and update the BEST score display.
+  updateBest();
+  Ranking.refresh().then(() => updateBest());
 })();
 </script>
 </body>
