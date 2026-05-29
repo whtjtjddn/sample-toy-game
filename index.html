@@ -516,12 +516,22 @@
     box-shadow: inset 0 0 14px rgba(0,240,255,0.06);
     text-align: left;
   }
-  .lobby-code {
+  .lobby-code-wrap {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 1px;
-    min-width: 0;
+    gap: 2px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    color: inherit;
+    transition: transform 0.08s, opacity 0.1s;
   }
+  .lobby-code-wrap:active { transform: scale(0.98); opacity: 0.85; }
   .lobby-code-label {
     font-family: 'Orbitron', sans-serif;
     font-weight: 700;
@@ -529,7 +539,26 @@
     color: var(--dim);
     letter-spacing: 2px;
     line-height: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
+  .copy-hint {
+    color: var(--cool);
+    letter-spacing: 0.5px;
+    font-size: 9px;
+    font-weight: 600;
+    opacity: 0.8;
+    transition: color 0.15s;
+  }
+  .lobby-code-wrap.copied .copy-hint {
+    color: #4ade80;
+    opacity: 1;
+  }
+  .lobby-code-wrap.copied .copy-hint::before {
+    content: '✓ 복사됨!';
+  }
+  .lobby-code-wrap.copied .copy-hint > * { display: none; }
   .lobby-code-value {
     font-family: 'Orbitron', sans-serif;
     font-weight: 900;
@@ -538,33 +567,11 @@
     color: var(--cool);
     text-shadow: 0 0 10px var(--cool);
     line-height: 1.1;
+    transition: text-shadow 0.2s;
   }
-  .lobby-code-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .copy-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 6px;
-    background: rgba(0,240,255,0.1);
-    border: 1px solid rgba(0,240,255,0.35);
-    color: var(--cool);
-    font-size: 14px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    flex-shrink: 0;
-    transition: background 0.1s, transform 0.08s;
-  }
-  .copy-btn:active { transform: scale(0.9); background: rgba(0,240,255,0.3); }
-  .copy-btn.copied {
-    background: rgba(74,222,128,0.25);
-    border-color: #4ade80;
+  .lobby-code-wrap.copied .lobby-code-value {
     color: #4ade80;
+    text-shadow: 0 0 14px #4ade80;
   }
   .lobby-header-right {
     display: flex;
@@ -1333,6 +1340,51 @@
     .panel-stat-value { font-size: 18px; }
   }
 
+  /* ============================================================
+   * MOBILE VS MODE — opponents as a horizontal strip above the board
+   * Score area is hidden to free up vertical space.
+   * ============================================================ */
+  @media (max-width: 767px) {
+    body.vs-mode .score-badge { display: none; }
+    body.vs-mode .topbar { justify-content: flex-end; gap: 6px; }
+
+    /* Opp list becomes a horizontal scroll strip */
+    body.vs-mode .opp-list {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      height: clamp(78px, 13vh, 104px);
+      overflow-x: auto;
+      overflow-y: hidden;
+      gap: 5px;
+      padding: 0 2px 2px;
+      flex-shrink: 0;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    body.vs-mode .opp-list::-webkit-scrollbar { display: none; }
+
+    /* Each card is a compact vertical mini-display */
+    body.vs-mode .opp-card {
+      flex: 0 0 auto;
+      width: clamp(54px, 14vw, 72px);
+      height: 100%;
+      min-height: 0;
+      max-height: none;
+    }
+    body.vs-mode .opp-card .opp-name {
+      font-size: 9px;
+      padding: 2px 3px;
+      letter-spacing: 0.5px;
+    }
+    body.vs-mode .opp-card .opp-stats {
+      font-size: 9px;
+      padding: 1px 2px 2px;
+      letter-spacing: 0;
+    }
+    body.vs-mode .opp-ko { font-size: 13px; }
+  }
+
   /* Show mobile hint by default; swap to desktop on wide screens */
   .desktop-hint { display: none; }
   /* Generic desktop-only utility — hidden on mobile, shown via desktop media query */
@@ -1523,7 +1575,6 @@
     body.vs-mode .play-area {
       gap: 14px;
     }
-    /* Inject an opponents column to the far left, before .side.left */
     body.vs-mode .side.left {
       order: 2;
     }
@@ -1534,25 +1585,40 @@
       order: 4;
       width: clamp(110px, 12vw, 150px);
     }
+    /* Opponents become a fixed left sidebar — full viewport height,
+     * doesn't affect the score row or the game's centering */
     body.vs-mode .opp-list {
-      order: 1;
-      width: clamp(220px, 24vw, 320px);
-      height: 100%;
-      flex-shrink: 0;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: clamp(280px, 24vw, 360px);
+      z-index: 20;
+      padding: 22px 14px;
+      background: linear-gradient(90deg, rgba(120, 80, 220, 0.1), rgba(120, 80, 220, 0.02));
+      border-right: 1px solid var(--line);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-      grid-auto-rows: minmax(180px, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+      grid-auto-rows: minmax(220px, 1fr);
+      gap: 10px;
       align-content: start;
-      padding: 2px 0;
+      overflow-y: auto;
     }
     body.vs-mode .opp-card {
       flex: unset;
-      min-height: 180px;
-      max-height: 320px;
+      min-height: 220px;
+      max-height: 360px;
     }
     body.vs-mode .opp-card .opp-name { font-size: 13px; padding: 4px 6px; }
     body.vs-mode .opp-card .opp-stats { font-size: 12px; padding: 3px 4px 5px; }
+
+    /* Shift .app right to leave room for the sidebar */
+    body.vs-mode .app {
+      padding-left: clamp(300px, 25vw, 380px);
+      max-width: none;
+    }
 
     /* Rank achievement on game over */
     #rankAchievement { font-size: 26px; padding: 6px 18px; }
@@ -1657,13 +1723,10 @@
         <div id="vsRoom" style="display:none;flex-direction:column;align-items:center;gap:14px;width:100%">
           <div class="vs-room-info-col">
             <div class="lobby-header">
-              <div class="lobby-code">
-                <div class="lobby-code-label">방 코드</div>
-                <div class="lobby-code-row">
-                  <div class="lobby-code-value" id="roomCodeLabel">----</div>
-                  <button class="copy-btn" id="copyCodeBtn" aria-label="방 코드 복사">📋</button>
-                </div>
-              </div>
+              <button class="lobby-code-wrap" id="copyCodeBtn" type="button">
+                <div class="lobby-code-label">방 코드 <span class="copy-hint">탭하여 복사 📋</span></div>
+                <div class="lobby-code-value" id="roomCodeLabel">----</div>
+              </button>
               <div class="lobby-header-right">
                 <div class="room-meta" id="playerCount">1/6</div>
                 <button class="close-btn" id="leaveRoomBtn" aria-label="나가기">✕</button>
@@ -3819,6 +3882,7 @@
     closeAllOverlays();
     gameMode = 'vs';
     document.body.classList.add('vs-mode');
+    repositionOppList();
     setTimeout(fitCanvas, 30);
     const ov = document.getElementById('countdownOverlay');
     const txt = document.getElementById('countdownText');
@@ -4072,18 +4136,23 @@
     lastTouchEnd = now;
   }, {passive: false});
 
-  // Reposition opp-list based on viewport: nested in right panel on mobile,
-  // promoted to top-level column on desktop for the Hangame-style layout.
+  // Reposition opp-list based on viewport.
+  //   Mobile: as a horizontal strip above .play-area (CSS converts it to row).
+  //   Desktop: stays in .play-area; CSS uses position:fixed to float it as a left sidebar.
   const desktopMQ = window.matchMedia('(min-width: 768px) and (min-height: 600px)');
   function repositionOppList() {
     const oppList = document.getElementById('oppList');
     const rightPanel = document.getElementById('rightPanel');
     const playArea = document.querySelector('.play-area');
-    if (!oppList || !rightPanel || !playArea) return;
+    const app = document.querySelector('.app');
+    if (!oppList || !rightPanel || !playArea || !app) return;
     if (desktopMQ.matches) {
       if (oppList.parentElement !== playArea) playArea.appendChild(oppList);
     } else {
-      if (oppList.parentElement !== rightPanel) rightPanel.appendChild(oppList);
+      // Mobile — place above play-area (inserted right before it)
+      if (oppList.parentElement !== app || oppList.nextElementSibling !== playArea) {
+        app.insertBefore(oppList, playArea);
+      }
     }
   }
   desktopMQ.addEventListener('change', () => {
