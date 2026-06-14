@@ -4,13 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#050018">
-<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='2' width='12' height='12' fill='%2300f0ff'/%3E%3Crect x='18' y='2' width='12' height='12' fill='%23ffe14a'/%3E%3Crect x='2' y='18' width='12' height='12' fill='%23ff2e88'/%3E%3Crect x='18' y='18' width='12' height='12' fill='%23c77dff'/%3E%3C/svg%3E">
+<meta name="apple-mobile-web-app-title" content="네온 테트리스">
 <title>네온 테트리스 — VS</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=Noto+Sans+KR:wght@500;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Major+Mono+Display&display=swap" rel="stylesheet">
+<script src="./mqtt.min.js"></script>
 <style>
   :root {
     --bg-0: #050018;
@@ -31,17 +34,12 @@
     height: 100%;
     background: radial-gradient(ellipse at top, var(--bg-1) 0%, var(--bg-0) 70%);
     color: var(--ink);
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
+    font-family: 'VT323', monospace;
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
     touch-action: none;
     overscroll-behavior: none;
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-    /* iOS Safari fallback: address bar can intrude; prefer dvh when available */
-    height: 100vh;
-    height: 100dvh;
   }
   body::before {
     content: '';
@@ -52,7 +50,6 @@
   }
 
   .app {
-    height: 100vh;
     height: 100dvh;
     display: flex;
     flex-direction: column;
@@ -60,79 +57,44 @@
     gap: 6px;
   }
 
-  /* TOP BAR — score badge + icons */
+  /* TOP BAR */
   .topbar {
-    display: flex;
-    align-items: stretch;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 0.8fr 40px;
+    gap: 5px;
     flex-shrink: 0;
-    height: 44px;
   }
-  .score-badge {
-    flex: 1;
-    background: linear-gradient(180deg, rgba(255,225,74,0.18), rgba(255,225,74,0.04));
-    border: 2px solid rgba(255,225,74,0.55);
-    border-radius: 10px;
-    padding: 0 12px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    box-shadow: 0 0 16px rgba(255,225,74,0.15), inset 0 0 12px rgba(255,225,74,0.08);
+  .stat {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 3px 7px;
     min-width: 0;
+    transition: background 0.3s, border-color 0.3s;
   }
-  .score-badge .medal {
-    width: 30px; height: 30px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #fff48a 0%, #ffd11a 45%, #a87600 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 900;
-    font-size: 16px;
-    color: #4a3000;
-    flex-shrink: 0;
-    box-shadow: 0 0 10px rgba(255,225,74,0.6), inset 0 -2px 4px rgba(0,0,0,0.3);
-    text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+  .stat-label { font-size: 10px; color: var(--dim); letter-spacing: 1.5px; line-height: 1; }
+  .stat-value {
+    font-size: 20px; line-height: 1.15; color: var(--ink);
+    text-shadow: 0 0 6px rgba(240,234,255,0.5);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .score-meta {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    line-height: 1;
-  }
-  .score-meta .label {
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 700;
-    font-size: 10px;
-    color: var(--dim);
-    letter-spacing: 2px;
-    margin-bottom: 2px;
-  }
-  .score-meta .value {
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 22px;
-    color: var(--warn);
-    text-shadow: 0 0 8px rgba(255,225,74,0.6);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .stat.score .stat-value { color: var(--warn); text-shadow: 0 0 8px rgba(255,225,74,0.6); }
+  .stat.level-flash { animation: statFlash 0.9s ease-out; }
+  @keyframes statFlash {
+    0%, 100% { background: rgba(255,255,255,0.03); border-color: var(--line); }
+    40% { background: rgba(0, 240, 255, 0.35); border-color: var(--cool); transform: scale(1.05); }
   }
   .icon-btn {
-    background: rgba(255,255,255,0.03);
-    border: 2px solid var(--line);
+    background: transparent;
+    border: 1px solid var(--line);
     color: var(--dim);
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-    font-weight: 700;
+    font-family: 'VT323', monospace;
     font-size: 18px;
-    width: 44px;
-    border-radius: 10px;
+    border-radius: 6px;
     cursor: pointer;
     letter-spacing: 2px;
-    flex-shrink: 0;
   }
-  .icon-btn:active { background: rgba(120,80,220,0.3); }
+  .icon-btn:active { background: rgba(120,80,220,0.2); }
 
   /* PLAY AREA */
   .play-area {
@@ -141,185 +103,77 @@
     display: flex;
     gap: 6px;
     justify-content: center;
-    align-items: stretch;
+    align-items: center;
   }
   .side {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    width: clamp(62px, 19vw, 84px);
-    height: 100%;
+    gap: 4px;
+    width: clamp(46px, 14vw, 60px);
     flex-shrink: 0;
   }
-
-  /* Hangame-style chunky panel */
-  .panel {
-    background: rgba(255,255,255,0.025);
-    border: 2px solid var(--line);
-    border-radius: 10px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    flex-shrink: 0;
-    box-shadow: inset 0 0 14px rgba(120,80,220,0.06);
-  }
-  .panel-label {
-    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
-    font-weight: 900;
-    font-size: 12px;
-    letter-spacing: 2px;
-    text-align: center;
-    background: rgba(0,0,0,0.4);
-    color: var(--dim);
-    padding: 4px 4px;
-    border-bottom: 1px solid var(--line);
-    line-height: 1;
-  }
-  .panel-canvas {
-    width: 100%;
-    height: clamp(46px, 14vw, 64px);
+  .mini-box {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4px;
+    aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 4px;
+    position: relative;
+    flex-shrink: 0;
   }
-  .panel-canvas + .panel-canvas {
-    border-top: 1px dashed rgba(120,80,220,0.18);
+  .mini-box.hold-box { border-color: rgba(199, 125, 255, 0.5); }
+  .mini-box.next-box { border-color: rgba(0, 240, 255, 0.4); }
+  .mini-box.next-box.sub { border-color: rgba(0, 240, 255, 0.2); opacity: 0.75; }
+  .mini-label {
+    position: absolute;
+    top: -6px; left: 5px;
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 1.5px;
+    background: var(--bg-0);
+    padding: 0 3px;
+    line-height: 1;
   }
+  .hold-box .mini-label { color: var(--hold); }
+  .next-box.main .mini-label { color: var(--cool); }
   canvas.mini { display: block; }
 
-  .panel.hold {
-    border-color: rgba(199,125,255,0.55);
-    box-shadow: inset 0 0 12px rgba(199,125,255,0.1), 0 0 12px rgba(199,125,255,0.1);
-  }
-  .panel.hold .panel-label {
-    color: var(--hold);
-    background: linear-gradient(180deg, rgba(199,125,255,0.22), rgba(199,125,255,0.06));
-    border-bottom-color: rgba(199,125,255,0.4);
-    text-shadow: 0 0 6px rgba(199,125,255,0.5);
-  }
-
-  .panel.next {
-    border-color: rgba(0,240,255,0.45);
-    box-shadow: inset 0 0 12px rgba(0,240,255,0.08), 0 0 12px rgba(0,240,255,0.08);
-  }
-  .panel.next .panel-label {
-    color: var(--cool);
-    background: linear-gradient(180deg, rgba(0,240,255,0.18), rgba(0,240,255,0.04));
-    border-bottom-color: rgba(0,240,255,0.4);
-    text-shadow: 0 0 6px rgba(0,240,255,0.5);
-  }
-
-  .panel.stat .panel-label {
-    color: var(--ink);
-    background: rgba(0,0,0,0.4);
-  }
-  .panel.level .panel-label {
-    color: var(--cool);
-    background: linear-gradient(180deg, rgba(0,240,255,0.15), rgba(0,240,255,0.03));
-    text-shadow: 0 0 6px rgba(0,240,255,0.5);
-  }
-  .panel-stat-value {
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 26px;
-    line-height: 1.1;
-    padding: 8px 4px;
-    text-align: center;
-    color: var(--ink);
-    text-shadow: 0 0 6px rgba(240,234,255,0.5);
-  }
-  .panel.level .panel-stat-value { color: var(--cool); text-shadow: 0 0 8px rgba(0,240,255,0.5); }
-  .panel.level-flash {
-    animation: panelFlash 0.9s ease-out;
-  }
-  @keyframes panelFlash {
-    0%, 100% { transform: scale(1); box-shadow: inset 0 0 12px rgba(0,240,255,0.08), 0 0 12px rgba(0,240,255,0.08); }
-    40% { transform: scale(1.06); box-shadow: inset 0 0 12px rgba(0,240,255,0.3), 0 0 24px rgba(0,240,255,0.5); }
-  }
-
-  /* VS opponent panel */
   body:not(.vs-mode) .vs-only { display: none !important; }
   body.vs-mode .solo-only { display: none !important; }
 
-  /* Multi-opponent list */
-  .opp-list {
-    flex: 1 1 0;
-    min-height: 0;
+  /* Opponent board */
+  .opp-box {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 46, 136, 0.45);
+    border-radius: 6px;
+    padding: 4px 4px 6px;
+    aspect-ratio: 10 / 22;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    width: 100%;
-  }
-  .opp-card {
-    flex: 1 1 0;
-    min-height: 0;
-    background: rgba(0,0,0,0.4);
-    border: 2px solid rgba(255,46,136,0.55);
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: inset 0 0 10px rgba(255,46,136,0.06);
+    align-items: center;
     position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    box-shadow: inset 0 0 12px rgba(255,46,136,0.1);
   }
-  .opp-card .opp-name {
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-    font-weight: 700;
-    font-size: 10px;
-    text-align: center;
-    background: linear-gradient(180deg, rgba(255,46,136,0.2), rgba(255,46,136,0.04));
-    border-bottom: 1px solid rgba(255,46,136,0.4);
+  .opp-label {
+    font-size: 9px;
     color: var(--hot);
-    padding: 2px 4px;
-    letter-spacing: 1px;
-    text-shadow: 0 0 4px rgba(255,46,136,0.5);
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    letter-spacing: 1.5px;
+    line-height: 1;
+    margin-bottom: 2px;
+    text-shadow: 0 0 4px var(--hot);
   }
-  .opp-card .opp-body-x {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2px;
-    background: rgba(0,0,0,0.35);
-    position: relative;
+  canvas.opp-board { display: block; flex: 1; }
+  .opp-stats {
+    font-size: 9px; color: var(--dim);
+    letter-spacing: 1px; line-height: 1.2;
+    text-align: center; margin-top: 3px;
   }
-  .opp-card canvas.opp-board { display: block; }
-  .opp-card .opp-stats {
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 10px;
-    color: var(--dim);
-    letter-spacing: 0.5px;
-    text-align: center;
-    line-height: 1.2;
-    padding: 1px 2px 2px;
-  }
-  .opp-card .opp-stats span { color: var(--ink); }
-  .opp-card.dead { opacity: 0.45; border-color: rgba(120,120,120,0.4); }
-  .opp-card.dead .opp-name { color: var(--dim); text-shadow: none; }
-  .opp-card.target { border-color: var(--warn); box-shadow: 0 0 12px rgba(255,225,74,0.4), inset 0 0 10px rgba(255,225,74,0.1); }
-  .opp-card.target .opp-name { color: var(--warn); background: linear-gradient(180deg, rgba(255,225,74,0.25), rgba(255,225,74,0.05)); border-bottom-color: rgba(255,225,74,0.5); }
-  .opp-ko {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 900;
-    color: #fff;
-    font-size: 18px;
-    text-shadow: 0 0 6px var(--hot);
-    pointer-events: none;
-    background: rgba(255,46,136,0.18);
-  }
+  .opp-stats span { color: var(--ink); }
 
   .board-wrap {
     position: relative;
@@ -351,7 +205,6 @@
     align-items: center;
     justify-content: center;
     background: rgba(5, 0, 24, 0.88);
-    -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);
     z-index: 5;
     border-radius: 4px;
@@ -359,22 +212,11 @@
     padding: 18px;
     text-align: center;
   }
-  /* Menu-style overlays cover the full viewport so SCORE / HOLD / etc don't show through.
-   * Pause + game-over stay scoped to board-wrap so the board remains visible behind them. */
-  #startOverlay, #vsLobby, #rankingOverlay, #finalRankOverlay {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    border-radius: 0;
-    overflow-y: auto;
-    justify-content: safe center;
-  }
   .overlay.show { display: flex; }
   .overlay h2 {
-    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
-    font-weight: 900;
+    font-family: 'Major Mono Display', monospace;
     font-size: 26px;
-    letter-spacing: 2px;
+    letter-spacing: 3px;
     color: var(--hot);
     text-shadow: 0 0 12px var(--hot);
   }
@@ -390,8 +232,7 @@
     background: transparent;
     border: 2px solid var(--cool);
     color: var(--cool);
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-    font-weight: 700;
+    font-family: 'VT323', monospace;
     font-size: 22px;
     letter-spacing: 2px;
     padding: 10px 32px;
@@ -413,10 +254,9 @@
   }
   .btn-group { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
   .room-code {
-    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
-    font-weight: 900;
+    font-family: 'Major Mono Display', monospace;
     font-size: 44px;
-    letter-spacing: 6px;
+    letter-spacing: 8px;
     color: var(--cool);
     text-shadow: 0 0 12px var(--cool), 0 0 28px var(--cool);
     padding: 8px 20px;
@@ -424,759 +264,11 @@
     border-radius: 6px;
     margin: 6px 0;
   }
-  .room-code-inline {
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 900;
-    letter-spacing: 4px;
-    color: var(--cool);
-    text-shadow: 0 0 10px var(--cool);
-    padding: 2px 10px;
-    background: rgba(0,240,255,0.08);
-    border: 1px solid rgba(0,240,255,0.4);
-    border-radius: 4px;
-  }
-  .player-list {
-    width: 100%;
-    max-width: 260px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 6px;
-    max-height: 180px;
-    overflow-y: auto;
-  }
-  .player-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    background: rgba(255,255,255,0.03);
-    border-radius: 4px;
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 600;
-    font-size: 15px;
-  }
-  .player-item .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .player-item .badge {
-    font-size: 10px;
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-weight: 700;
-    letter-spacing: 1px;
-  }
-  .player-item .badge.host { background: rgba(255,225,74,0.25); color: var(--warn); border: 1px solid rgba(255,225,74,0.4); }
-  .player-item .badge.me { background: rgba(0,240,255,0.2); color: var(--cool); border: 1px solid rgba(0,240,255,0.4); }
-  .player-item .ready-mark {
-    font-size: 14px;
-    width: 20px;
-    text-align: center;
-  }
-  .player-item.ready { background: rgba(74,222,128,0.12); border-left: 3px solid #4ade80; }
-  .player-item.ready .ready-mark { color: #4ade80; }
-  .player-item:not(.ready) .ready-mark { color: var(--dim); }
-  #readyBtn.active {
-    border-color: #4ade80;
-    color: #4ade80;
-    text-shadow: 0 0 6px #4ade80;
-    box-shadow: 0 0 12px rgba(74,222,128,0.3), inset 0 0 12px rgba(74,222,128,0.1);
-  }
-  #startMatchBtn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-  }
-
-  /* VS Room column wrappers — mobile: stacked, desktop: side-by-side */
-  .vs-room-info-col {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    width: 100%;
-    max-width: 300px;
-  }
-  .vs-room-chat-col {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-  }
-
-  /* Lobby header — room code + count + close */
-  .lobby-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 8px 12px;
-    background: linear-gradient(180deg, rgba(0,240,255,0.1), rgba(0,240,255,0.02));
-    border: 1px solid rgba(0,240,255,0.35);
-    border-radius: 10px;
-    box-shadow: inset 0 0 14px rgba(0,240,255,0.06);
-    text-align: left;
-  }
-  .lobby-code-wrap {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    background: transparent;
-    border: none;
-    padding: 0;
-    text-align: left;
-    cursor: pointer;
-    font-family: inherit;
-    color: inherit;
-    transition: transform 0.08s, opacity 0.1s;
-  }
-  .lobby-code-wrap:active { transform: scale(0.98); opacity: 0.85; }
-  .lobby-code-label {
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 700;
-    font-size: 9px;
-    color: var(--dim);
-    letter-spacing: 2px;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-  }
-  .copy-icon {
-    font-size: 12px;
-    line-height: 1;
-    opacity: 0.7;
-    transition: transform 0.15s, opacity 0.15s;
-  }
-  .lobby-code-wrap:hover .copy-icon { opacity: 1; transform: scale(1.1); }
-  .lobby-code-wrap.copied .copy-label-text::after {
-    content: ' · 복사됨!';
-    color: #4ade80;
-    letter-spacing: 0.5px;
-  }
-  .lobby-code-wrap.copied .copy-icon {
-    content: '';
-  }
-  .lobby-code-value {
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 900;
-    font-size: 26px;
-    letter-spacing: 5px;
-    color: var(--cool);
-    text-shadow: 0 0 10px var(--cool);
-    line-height: 1.1;
-    transition: text-shadow 0.2s, color 0.2s;
-  }
-  .lobby-code-wrap.copied .lobby-code-value {
-    color: #4ade80;
-    text-shadow: 0 0 14px #4ade80;
-  }
-  .lobby-header-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-  .lobby-header-right .room-meta { margin: 0; }
-  .lobby-header-right .room-meta {
-    margin: 0;
-    font-size: 13px;
-    font-weight: 700;
-    padding: 4px 10px;
-    background: rgba(0,240,255,0.1);
-    border-color: rgba(0,240,255,0.35);
-    color: var(--cool);
-  }
-  .close-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: rgba(255,46,136,0.1);
-    border: 1px solid rgba(255,46,136,0.4);
-    color: var(--hot);
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    flex-shrink: 0;
-    transition: background 0.1s, transform 0.08s;
-  }
-  .close-btn:active {
-    background: rgba(255,46,136,0.3);
-    transform: scale(0.92);
-  }
-
-  /* Settings card — labeled section for game options */
-  .settings-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 8px 12px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-  }
-  .settings-label {
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-    font-weight: 700;
-    font-size: 13px;
-    color: var(--dim);
-    letter-spacing: 1px;
-  }
-
-  /* Action buttons — full-width primary CTAs */
-  .action-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 100%;
-  }
-  .action-buttons button {
-    width: 100%;
-    padding: 12px 16px;
-    font-size: 17px;
-  }
-
-  /* CHAT PANEL (lobby) */
-  .chat-panel {
-    width: 100%;
-    max-width: 280px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    background: rgba(0,0,0,0.4);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 8px;
-    box-shadow: inset 0 0 14px rgba(0,0,0,0.3);
-  }
-  .chat-messages {
-    max-height: 150px;
-    min-height: 80px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 4px 2px;
-    scroll-behavior: smooth;
-  }
-  .chat-messages::-webkit-scrollbar { width: 4px; }
-  .chat-messages::-webkit-scrollbar-track { background: transparent; }
-  .chat-messages::-webkit-scrollbar-thumb { background: rgba(0,240,255,0.25); border-radius: 2px; }
-  .chat-messages::-webkit-scrollbar-thumb:hover { background: rgba(0,240,255,0.5); }
-
-  .chat-msg {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-    font-size: 13px;
-    animation: chatSlideIn 0.22s ease-out;
-    max-width: 100%;
-  }
-  @keyframes chatSlideIn {
-    from { opacity: 0; transform: translateY(6px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Others — left aligned */
-  .chat-msg:not(.me):not(.system) { align-items: flex-start; }
-  .chat-msg:not(.me):not(.system) .author {
-    color: var(--cool);
-    font-weight: 700;
-    font-size: 10px;
-    letter-spacing: 1px;
-    padding-left: 8px;
-    margin-bottom: 1px;
-  }
-  .chat-msg:not(.me):not(.system) .bubble {
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px 12px 12px 4px;
-    padding: 5px 10px;
-    color: var(--ink);
-    max-width: 90%;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    line-height: 1.35;
-  }
-
-  /* Me — right aligned */
-  .chat-msg.me { align-items: flex-end; }
-  .chat-msg.me .bubble {
-    background: linear-gradient(135deg, rgba(0,240,255,0.28), rgba(0,240,255,0.12));
-    border: 1px solid rgba(0,240,255,0.45);
-    border-radius: 12px 12px 4px 12px;
-    padding: 5px 10px;
-    color: var(--ink);
-    max-width: 90%;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    line-height: 1.35;
-    text-shadow: 0 0 4px rgba(0,240,255,0.15);
-  }
-
-  /* Same author consecutively — hide name, tighter spacing */
-  .chat-msg.same-author { margin-top: -4px; }
-  .chat-msg.same-author .author { display: none; }
-  .chat-msg.same-author:not(.me) .bubble { border-radius: 4px 12px 12px 4px; }
-
-  /* System messages — centered, dim */
-  .chat-msg.system {
-    align-items: center;
-    color: var(--dim);
-    font-style: italic;
-    font-size: 11px;
-    text-align: center;
-    padding: 2px 0;
-    opacity: 0.85;
-  }
-  .chat-msg.system .bubble {
-    background: rgba(120,80,220,0.08);
-    border: 1px solid rgba(120,80,220,0.18);
-    border-radius: 10px;
-    padding: 2px 10px;
-    color: var(--dim);
-    font-size: 11px;
-  }
-
-  /* Empty state */
-  .chat-empty {
-    color: var(--dim);
-    text-align: center;
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-    font-style: italic;
-    font-size: 12px;
-    padding: 18px 8px;
-    opacity: 0.6;
-    margin: auto 0;
-  }
-  .chat-empty::before {
-    content: '💬';
-    display: block;
-    font-size: 22px;
-    margin-bottom: 4px;
-    opacity: 0.7;
-    font-style: normal;
-  }
-
-  /* Input row */
-  .chat-input-row {
-    display: flex;
-    gap: 4px;
-    background: rgba(0,0,0,0.35);
-    border: 1px solid rgba(0,240,255,0.18);
-    border-radius: 8px;
-    padding: 3px;
-    transition: border-color 0.15s, box-shadow 0.15s;
-  }
-  .chat-input-row:focus-within {
-    border-color: rgba(0,240,255,0.55);
-    box-shadow: 0 0 12px rgba(0,240,255,0.2);
-  }
-  .chat-input-row input {
-    flex: 1;
-    min-width: 0;
-    background: transparent;
-    border: none;
-    color: var(--ink);
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-    font-size: 14px;
-    padding: 5px 8px;
-    outline: none;
-  }
-  .chat-input-row input::placeholder { color: var(--dim); opacity: 0.5; }
-  .chat-input-row button {
-    background: linear-gradient(135deg, rgba(0,240,255,0.32), rgba(0,240,255,0.12));
-    border: 1px solid rgba(0,240,255,0.5);
-    border-radius: 6px;
-    color: var(--cool);
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 16px;
-    font-weight: 900;
-    padding: 0 12px;
-    cursor: pointer;
-    flex-shrink: 0;
-    letter-spacing: 0;
-    text-shadow: 0 0 6px rgba(0,240,255,0.5);
-    transition: transform 0.08s;
-    min-width: 36px;
-  }
-  .chat-input-row button:active { transform: scale(0.92); background: rgba(0,240,255,0.45); }
-
-  /* EMOTE DOCK (in-game) */
-  .emote-dock {
-    display: flex;
-    gap: 4px;
-    justify-content: center;
-    align-items: center;
-    padding: 4px 0 0;
-    flex-shrink: 0;
-    flex-wrap: wrap;
-  }
-  .emote-btn {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    color: var(--ink);
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-    font-weight: 700;
-    font-size: 18px;
-    padding: 4px 0;
-    cursor: pointer;
-    flex: 1;
-    min-width: 0;
-    max-width: 56px;
-    transition: transform 0.08s, background 0.08s;
-    line-height: 1.2;
-  }
-  .emote-btn:active {
-    transform: scale(0.9);
-    background: rgba(0,240,255,0.18);
-  }
-
-  /* EMOTE BUBBLE (over board / opp card) */
-  .emote-bubble {
-    position: absolute;
-    top: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    pointer-events: none;
-    z-index: 50;
-  }
-  .emote-bubble-item {
-    background: rgba(255,255,255,0.96);
-    color: #1a0040;
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-    font-weight: 900;
-    font-size: 24px;
-    padding: 6px 14px;
-    border-radius: 14px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.5), 0 0 18px rgba(0,240,255,0.2);
-    white-space: nowrap;
-    animation: emoteFloat 2.5s ease-out forwards;
-  }
-  @keyframes emoteFloat {
-    0% { opacity: 0; transform: translateY(8px) scale(0.4); }
-    15% { opacity: 1; transform: translateY(0) scale(1); }
-    80% { opacity: 1; transform: translateY(-12px) scale(1); }
-    100% { opacity: 0; transform: translateY(-32px) scale(0.9); }
-  }
-  /* Smaller emote bubble over opponent card */
-  .opp-card .opp-emote {
-    position: absolute;
-    top: 18px;
-    left: 50%;
-    transform: translateX(-50%);
-    pointer-events: none;
-    z-index: 50;
-  }
-  .opp-card .opp-emote .emote-bubble-item {
-    font-size: 16px;
-    padding: 3px 8px;
-    border-radius: 10px;
-  }
-  .room-meta {
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 13px;
-    color: var(--dim);
-    margin-left: 8px;
-    padding: 1px 8px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-  }
-  .attack-mode-toggle {
-    display: flex;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  .attack-mode-toggle button {
-    background: transparent;
-    border: 0;
-    color: var(--dim);
-    padding: 5px 14px;
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: background 0.1s, color 0.1s;
-  }
-  .attack-mode-toggle button + button {
-    border-left: 1px solid var(--line);
-  }
-  .attack-mode-toggle button.active {
-    background: linear-gradient(180deg, rgba(255,46,136,0.55), rgba(255,46,136,0.25));
-    color: #fff;
-    text-shadow: 0 0 6px rgba(255,46,136,0.6);
-  }
-  .attack-mode-toggle.read-only button {
-    cursor: default;
-    opacity: 0.7;
-  }
-  .attack-mode-toggle.read-only button.active {
-    opacity: 1;
-  }
-
-  /* RANKING */
-  .nickname-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: rgba(0,240,255,0.06);
-    border: 1px solid rgba(0,240,255,0.35);
-    border-radius: 8px;
-    padding: 6px 12px;
-    width: 100%;
-    max-width: 260px;
-  }
-  .nickname-row label {
-    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
-    font-weight: 700;
-    font-size: 11px;
-    color: var(--cool);
-    letter-spacing: 2px;
-    flex-shrink: 0;
-  }
-  .nickname-row input {
-    background: transparent;
-    border: none;
-    outline: none;
-    color: var(--ink);
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-    font-weight: 700;
-    font-size: 16px;
-    flex: 1;
-    min-width: 0;
-    padding: 4px 0;
-    letter-spacing: 0.5px;
-    text-align: right;
-  }
-  .nickname-row input::placeholder { color: var(--dim); opacity: 0.7; }
-  .nickname-row.error {
-    animation: nicknameShake 0.5s ease-in-out;
-    border-color: var(--hot) !important;
-    background: rgba(255,46,136,0.12) !important;
-    box-shadow: 0 0 14px rgba(255,46,136,0.4);
-  }
-  .nickname-row.error label { color: var(--hot); }
-  @keyframes nicknameShake {
-    0%, 100% { transform: translateX(0); }
-    20%, 60% { transform: translateX(-6px); }
-    40%, 80% { transform: translateX(6px); }
-  }
-
-  .ranking-status {
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 11px;
-    letter-spacing: 1px;
-    margin-left: 8px;
-    vertical-align: middle;
-    padding: 2px 7px;
-    border-radius: 10px;
-    border: 1px solid currentColor;
-    text-shadow: none;
-  }
-  .ranking-list.loading { opacity: 0.55; }
-  .ranking-list {
-    width: 100%;
-    max-width: 300px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-height: 50vh;
-    overflow-y: auto;
-    padding: 2px;
-  }
-  .rank-row {
-    display: grid;
-    grid-template-columns: 32px 1fr auto;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    font-family: 'Rajdhani', sans-serif;
-    text-align: left;
-  }
-  .rank-row .rank-num {
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 900;
-    font-size: 18px;
-    color: var(--dim);
-    text-align: center;
-  }
-  .rank-row .rank-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .rank-row .rank-score {
-    font-weight: 700;
-    font-size: 18px;
-    color: var(--warn);
-    text-shadow: 0 0 4px rgba(255,225,74,0.4);
-    line-height: 1;
-  }
-  .rank-row .rank-name {
-    font-size: 11px;
-    color: var(--dim);
-    letter-spacing: 1px;
-    line-height: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .rank-row .rank-meta {
-    font-size: 11px;
-    color: var(--dim);
-    line-height: 1.3;
-    text-align: right;
-    letter-spacing: 0.5px;
-  }
-  .rank-row .rank-meta b { color: var(--ink); font-weight: 700; }
-  .rank-row.gold { border-color: var(--warn); background: linear-gradient(180deg, rgba(255,225,74,0.16), rgba(255,225,74,0.04)); }
-  .rank-row.gold .rank-num { color: var(--warn); text-shadow: 0 0 8px var(--warn); }
-  .rank-row.silver { border-color: rgba(220,220,220,0.5); background: rgba(220,220,220,0.08); }
-  .rank-row.silver .rank-num { color: #ddd; text-shadow: 0 0 4px #ddd; }
-  .rank-row.bronze { border-color: rgba(205,127,50,0.6); background: rgba(205,127,50,0.08); }
-  .rank-row.bronze .rank-num { color: #e89651; text-shadow: 0 0 4px #cd7f32; }
-  .rank-row.highlight {
-    animation: rankHighlight 1.4s ease-in-out infinite;
-  }
-  @keyframes rankHighlight {
-    0%, 100% { box-shadow: 0 0 8px rgba(0,240,255,0.4), inset 0 0 6px rgba(0,240,255,0.1); }
-    50% { box-shadow: 0 0 18px rgba(0,240,255,0.8), inset 0 0 10px rgba(0,240,255,0.25); }
-  }
-  .rank-empty {
-    color: var(--dim);
-    padding: 16px 8px;
-    text-align: center;
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 15px;
-  }
-
-  /* Rank achievement on game over */
-  #rankAchievement {
-    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
-    font-weight: 900;
-    font-size: 22px;
-    color: var(--warn);
-    text-shadow: 0 0 12px var(--warn), 0 0 24px var(--warn);
-    letter-spacing: 2px;
-    padding: 4px 14px;
-    border: 2px solid var(--warn);
-    border-radius: 6px;
-    background: rgba(255,225,74,0.08);
-    animation: achievementPulse 1.1s ease-in-out infinite;
-  }
-  @keyframes achievementPulse {
-    0%, 100% { transform: scale(1); box-shadow: 0 0 12px rgba(255,225,74,0.3); }
-    50% { transform: scale(1.08); box-shadow: 0 0 24px rgba(255,225,74,0.7); }
-  }
-  /* Hide ranking button in VS mode */
-  body.vs-mode .solo-end-only { display: none !important; }
-
-  /* FINAL RANKINGS POPUP (VS post-match) */
-  .final-rank-list {
-    width: 100%;
-    max-width: 340px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 4px 0;
-  }
-  .final-rank-row {
-    display: grid;
-    grid-template-columns: 44px 1fr auto;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-    text-align: left;
-    animation: rankRowSlideIn 0.35s ease-out backwards;
-  }
-  .final-rank-row.gold {
-    border-color: var(--warn);
-    background: linear-gradient(180deg, rgba(255,225,74,0.18), rgba(255,225,74,0.04));
-    box-shadow: 0 0 12px rgba(255,225,74,0.2);
-  }
-  .final-rank-row.silver {
-    border-color: rgba(220,220,220,0.5);
-    background: rgba(220,220,220,0.08);
-  }
-  .final-rank-row.bronze {
-    border-color: rgba(205,127,50,0.6);
-    background: rgba(205,127,50,0.08);
-  }
-  .final-rank-row.me {
-    border-width: 2px;
-    box-shadow: 0 0 14px rgba(0,240,255,0.3), inset 0 0 8px rgba(0,240,255,0.08);
-  }
-  .final-rank-row .place {
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 900;
-    font-size: 22px;
-    color: var(--dim);
-    text-align: center;
-  }
-  .final-rank-row.gold .place { color: var(--warn); text-shadow: 0 0 8px var(--warn); }
-  .final-rank-row.silver .place { color: #ddd; text-shadow: 0 0 4px #ddd; }
-  .final-rank-row.bronze .place { color: #e89651; text-shadow: 0 0 4px #cd7f32; }
-  .final-rank-row .who {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-    overflow: hidden;
-  }
-  .final-rank-row .who-name {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--ink);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .final-rank-row.me .who-name::after {
-    content: ' (나)';
-    color: var(--cool);
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .final-rank-row .who-meta {
-    font-size: 11px;
-    color: var(--dim);
-    letter-spacing: 1px;
-  }
-  .final-rank-row .pts {
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 18px;
-    color: var(--warn);
-    text-shadow: 0 0 4px rgba(255,225,74,0.3);
-  }
-  @keyframes rankRowSlideIn {
-    from { opacity: 0; transform: translateX(-12px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
   .room-input {
     background: rgba(0,0,0,0.3);
     border: 2px solid var(--line);
     color: var(--ink);
-    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
-    font-weight: 700;
+    font-family: 'Major Mono Display', monospace;
     font-size: 32px;
     letter-spacing: 8px;
     text-align: center;
@@ -1187,17 +279,7 @@
     outline: none;
   }
   .room-input:focus { border-color: var(--cool); box-shadow: 0 0 12px rgba(0,240,255,0.3); }
-  .status-line {
-    font-size: 11px;
-    color: var(--dim);
-    letter-spacing: 1px;
-    opacity: 0.7;
-    margin: -4px 0 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-  }
+  .status-line { font-size: 14px; color: var(--dim); letter-spacing: 1px; }
   .conn-dot {
     display: inline-block;
     width: 8px; height: 8px;
@@ -1218,14 +300,12 @@
     z-index: 6;
     pointer-events: none;
     background: rgba(5,0,24,0.4);
-    -webkit-backdrop-filter: blur(2px);
     backdrop-filter: blur(2px);
     border-radius: 4px;
   }
   .countdown-overlay.show { display: flex; }
   .countdown-overlay span {
-    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
-    font-weight: 900;
+    font-family: 'Major Mono Display', monospace;
     font-size: 96px;
     color: var(--warn);
     text-shadow: 0 0 24px var(--warn), 0 0 48px var(--warn);
@@ -1243,8 +323,7 @@
     top: 30%;
     left: 50%;
     transform: translateX(-50%) scale(0);
-    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
-    font-weight: 900;
+    font-family: 'Major Mono Display', monospace;
     font-size: clamp(26px, 7vw, 42px);
     color: var(--cool);
     text-shadow: 0 0 16px var(--cool), 0 0 32px var(--cool);
@@ -1273,8 +352,7 @@
     background: rgba(120, 80, 220, 0.12);
     border: 1px solid var(--line);
     color: var(--ink);
-    font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-    font-weight: 700;
+    font-family: 'VT323', monospace;
     padding: 0;
     border-radius: 8px;
     text-shadow: 0 0 4px rgba(240,234,255,0.4);
@@ -1326,434 +404,13 @@
 
   @media (max-height: 680px) {
     .btn.hold-btn { height: 48px; font-size: 22px; }
-    .panel-stat-value { font-size: 20px; padding: 5px 4px; }
-    .panel-label { font-size: 11px; padding: 3px 4px; }
-    .topbar { height: 40px; }
-    .score-meta .value { font-size: 19px; }
-    .score-badge .medal { width: 26px; height: 26px; font-size: 14px; }
+    .stat-value { font-size: 17px; }
     .overlay h2 { font-size: 22px; }
     .room-code { font-size: 36px; }
     .countdown-overlay span { font-size: 76px; }
   }
   @media (max-width: 340px) {
-    .side { width: 56px; }
-    .panel-stat-value { font-size: 18px; }
-  }
-
-  /* MOBILE VS — compact stats bar (SCORE/LINES + NEXT mini) */
-  .mobile-vs-bar { display: none; }
-  .mvs-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    line-height: 1;
-  }
-  .mvs-label {
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 700;
-    font-size: 9px;
-    letter-spacing: 2px;
-    color: var(--dim);
-  }
-  .mvs-value {
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 18px;
-    color: var(--ink);
-    line-height: 1;
-  }
-  .mvs-right-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-left: auto;
-  }
-  .mvs-hold-wrap {
-    display: flex;
-    align-items: center;
-    padding-right: 10px;
-    border-right: 1px solid var(--line);
-  }
-  .mvs-hold-canvas {
-    width: 36px;
-    height: 26px;
-  }
-  .mvs-next-pieces {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-  .mvs-next-canvas {
-    display: block;
-    width: 40px;
-    height: 28px;
-  }
-
-  /* ============================================================
-   * MOBILE VS MODE — opponents as a horizontal strip above the board
-   * Score area is hidden to free up vertical space.
-   * ============================================================ */
-  @media (max-width: 767px) {
-    body.vs-mode .score-badge { display: none; }
-    body.vs-mode .topbar {
-      justify-content: flex-end;
-      gap: 6px;
-      height: 36px;
-      flex-shrink: 0;
-    }
-    body.vs-mode .icon-btn { width: 36px; }
-
-    /* Show compact stats bar */
-    body.vs-mode .mobile-vs-bar {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 4px 4px;
-      flex-shrink: 0;
-    }
-
-    /* Hide regular side panels entirely (HOLD/LINE/LEVEL/NEXT) on mobile VS */
-    body.vs-mode .side { display: none; }
-
-    /* Board takes the full play-area now that sides are hidden */
-    body.vs-mode .play-area { gap: 0; }
-    body.vs-mode .board-wrap { flex: 1; width: 100%; }
-
-    /* Opp list becomes a ~20vh horizontal strip — always shows 5 slots */
-    body.vs-mode .opp-list {
-      display: flex;
-      flex-direction: row;
-      width: 100%;
-      height: clamp(110px, 20vh, 170px);
-      overflow-x: auto;
-      overflow-y: hidden;
-      gap: 5px;
-      padding: 0 2px 2px;
-      flex-shrink: 0;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-    body.vs-mode .opp-list::-webkit-scrollbar { display: none; }
-
-    /* Each card is a compact vertical mini-display */
-    body.vs-mode .opp-card {
-      flex: 0 0 auto;
-      width: clamp(64px, 18vw, 90px);
-      height: 100%;
-      min-height: 0;
-      max-height: none;
-    }
-    body.vs-mode .opp-card .opp-name {
-      font-size: 9px;
-      padding: 2px 3px;
-      letter-spacing: 0.5px;
-    }
-    body.vs-mode .opp-card .opp-stats {
-      font-size: 9px;
-      padding: 1px 2px 2px;
-      letter-spacing: 0;
-    }
-    body.vs-mode .opp-ko { font-size: 13px; }
-
-    /* Empty slot on mobile */
-    body.vs-mode .opp-card.empty {
-      border: 1px dashed rgba(120, 80, 220, 0.3);
-      background: rgba(0, 0, 0, 0.2);
-      box-shadow: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    body.vs-mode .opp-card.empty .opp-empty {
-      color: var(--dim);
-      font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-      font-weight: 600;
-      font-size: 9px;
-      opacity: 0.4;
-      letter-spacing: 0.5px;
-    }
-    body.vs-mode .opp-card.empty .opp-name,
-    body.vs-mode .opp-card.empty .opp-body-x,
-    body.vs-mode .opp-card.empty .opp-stats { display: none; }
-  }
-
-  /* Show mobile hint by default; swap to desktop on wide screens */
-  .desktop-hint { display: none; }
-  /* Generic desktop-only utility — hidden on mobile, shown via desktop media query */
-  .desktop-only { display: none !important; }
-
-  /* TIME pill (desktop only) */
-  .time-pill {
-    background: linear-gradient(180deg, rgba(0,240,255,0.14), rgba(0,240,255,0.03));
-    border: 2px solid rgba(0,240,255,0.4);
-    border-radius: 12px;
-    padding: 0 18px;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    flex-shrink: 0;
-    box-shadow: 0 0 10px rgba(0,240,255,0.1);
-  }
-  .time-pill .label {
-    font-family: 'Orbitron', sans-serif;
-    font-weight: 700;
-    font-size: 11px;
-    color: var(--cool);
-    letter-spacing: 2px;
-    line-height: 1;
-  }
-  .time-pill .value {
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 22px;
-    color: var(--ink);
-    text-shadow: 0 0 6px rgba(0,240,255,0.4);
-    letter-spacing: 1px;
-    line-height: 1;
-  }
-
-  /* BEST score (desktop only — added inside score-badge) */
-  .best-meta {
-    border-left: 1px solid rgba(255,225,74,0.3);
-    padding-left: 14px;
-    margin-left: 4px;
-    flex-direction: column;
-    justify-content: center;
-    align-self: center;
-    height: 70%;
-    flex-shrink: 0;
-  }
-  .best-meta .label {
-    color: var(--dim) !important;
-  }
-  .best-meta .value {
-    font-size: 18px !important;
-    color: rgba(255,225,74,0.75) !important;
-    text-shadow: 0 0 4px rgba(255,225,74,0.3) !important;
-  }
-
-  /* ============================================================ */
-  /* DESKTOP / TABLET LAYOUT — min-width 768px                   */
-  /* Wider panels, larger fonts, keyboard-first (no touch HOLD)  */
-  /* ============================================================ */
-  @media (min-width: 768px) and (min-height: 600px) {
-    .app {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 18px 24px;
-      gap: 12px;
-    }
-
-    /* Top bar — bigger badge, roomier */
-    .topbar { height: 56px; gap: 10px; }
-    .score-badge { padding: 0 18px; gap: 14px; border-radius: 12px; }
-    .score-badge .medal { width: 40px; height: 40px; font-size: 22px; }
-    .score-meta .label { font-size: 12px; letter-spacing: 3px; margin-bottom: 3px; }
-    .score-meta .value { font-size: 30px; }
-    .icon-btn { width: 56px; font-size: 22px; border-radius: 12px; }
-
-    /* Play area & panels — wider sides for readable labels */
-    .play-area { gap: 14px; }
-    .side {
-      width: clamp(120px, 13vw, 160px);
-      gap: 10px;
-    }
-    .panel { border-radius: 12px; }
-    .panel-label { font-size: 14px; padding: 7px 4px; letter-spacing: 3px; }
-    .panel-canvas { height: clamp(90px, 9.5vw, 120px); padding: 8px; }
-    .panel-stat-value { font-size: 38px; padding: 14px 4px; }
-
-    /* Hide touch controls + bottom gesture hint */
-    .controls { display: none; }
-    .gesture-hint { display: none; }
-
-    /* Hint swap on start screen */
-    .mobile-hint { display: none; }
-    .desktop-hint { display: block; }
-
-    /* Show desktop-only elements (TIME pill, BEST, extra NEXT pieces) */
-    .desktop-only { display: flex !important; }
-
-    /* Overlay text */
-    .overlay h2 { font-size: 40px; letter-spacing: 4px; }
-    .overlay p { font-size: 18px; }
-    .overlay .hint { font-size: 15px; line-height: 1.8; }
-    .overlay button {
-      font-size: 22px; padding: 12px 38px; border-radius: 8px;
-    }
-    .overlay button.ghost { font-size: 16px; padding: 7px 22px; }
-
-    /* Countdown bigger */
-    .countdown-overlay span { font-size: 180px; }
-    .level-up-banner { font-size: clamp(48px, 5.5vw, 72px); }
-
-    /* Lobby / VS panels */
-    .room-code { font-size: 56px; letter-spacing: 8px; padding: 12px 28px; }
-    .room-code-inline { font-size: 1.05em; padding: 3px 12px; }
-    .room-input { font-size: 36px; width: 260px; padding: 10px 14px; }
-    .player-list { max-width: 360px; max-height: 260px; padding: 10px; }
-    .player-item { font-size: 16px; padding: 8px 12px; }
-    .player-item .badge { font-size: 11px; padding: 2px 7px; }
-    .settings-label { font-size: 14px; }
-    .settings-card { padding: 10px 14px; }
-    .attack-mode-toggle button { font-size: 15px; padding: 7px 18px; }
-    .lobby-code-value { font-size: 32px; letter-spacing: 7px; }
-    .action-buttons button { font-size: 18px; padding: 14px; }
-
-    /* Lobby room as 2-column layout on desktop */
-    #vsRoom {
-      flex-direction: row !important;
-      align-items: stretch !important;
-      justify-content: center;
-      gap: 28px !important;
-      max-width: 800px;
-    }
-    .vs-room-info-col {
-      flex: 1;
-      max-width: 340px;
-    }
-    .vs-room-chat-col {
-      flex: 1;
-      max-width: 400px;
-      display: flex;
-      flex-direction: column;
-      justify-content: stretch;
-      align-items: stretch;
-    }
-    .vs-room-chat-col .chat-panel {
-      flex: 1;
-      width: 100%;
-      max-width: none;
-      display: flex;
-      flex-direction: column;
-    }
-    .vs-room-chat-col .chat-messages {
-      flex: 1;
-      max-height: none;
-      min-height: 280px;
-    }
-    .vs-room-chat-col .chat-msg { font-size: 14px; }
-    .vs-room-chat-col .chat-panel { padding: 10px; }
-    .vs-room-chat-col .chat-input-row input { font-size: 15px; padding: 6px 10px; }
-    .vs-room-chat-col .chat-input-row button { font-size: 18px; padding: 0 14px; min-width: 42px; }
-
-    /* Ranking on desktop */
-    .ranking-list { max-width: 400px; max-height: 56vh; }
-    .rank-row {
-      padding: 9px 14px;
-      grid-template-columns: 40px 1fr auto;
-      gap: 12px;
-    }
-    .rank-row .rank-num { font-size: 22px; }
-    .rank-row .rank-score { font-size: 22px; }
-    .rank-row .rank-name { font-size: 13px; }
-    .rank-row .rank-meta { font-size: 13px; }
-
-    /* Nickname */
-    .nickname-row { max-width: 320px; padding: 8px 16px; }
-    .nickname-row label { font-size: 12px; }
-    .nickname-row input { font-size: 18px; }
-
-    /* Opponent cards — a bit more room */
-    .opp-card .opp-name { font-size: 13px; padding: 4px 6px; }
-    .opp-card .opp-stats { font-size: 12px; padding: 2px 4px 4px; }
-    .opp-ko { font-size: 24px; }
-
-    /* ============================================================
-     * VS mode on desktop — Hangame-style layout:
-     * [ Opponents | HOLD/Stats | My Board | NEXT ]
-     * ============================================================ */
-    /* ============================================================
-     * DESKTOP VS — BLOCKMVP-style layout:
-     *   [ HOLD/Stats | MY BOARD | NEXT | Opps 2x3 grid ]
-     * 5 opp slots always (empty placeholders when fewer players).
-     * ============================================================ */
-    body.vs-mode .play-area {
-      gap: 14px;
-    }
-    body.vs-mode .side.left { order: 1; }
-    body.vs-mode .board-wrap { order: 2; }
-    body.vs-mode .side.right { order: 3; width: clamp(90px, 10vw, 120px); }
-    body.vs-mode .opp-list {
-      position: static;
-      order: 4;
-      width: clamp(260px, 24vw, 340px);
-      height: 100%;
-      flex-shrink: 0;
-      background: linear-gradient(180deg, rgba(120, 80, 220, 0.08), rgba(120, 80, 220, 0.02));
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 10px;
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      grid-auto-rows: min-content;
-      gap: 8px;
-      align-content: start;
-      backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
-      overflow-y: auto;
-    }
-
-    body.vs-mode .opp-card {
-      flex: unset;
-      min-height: 0;
-      height: auto;
-      max-height: none;
-      aspect-ratio: 1 / 1.7;
-      align-self: start;
-    }
-    /* Body inside the card inherits the leftover space and holds the canvas */
-    body.vs-mode .opp-card .opp-body-x {
-      flex: 1;
-      min-height: 0;
-    }
-    body.vs-mode .opp-card .opp-name { font-size: 12px; padding: 3px 5px; }
-    body.vs-mode .opp-card .opp-stats { font-size: 11px; padding: 2px 4px 4px; }
-
-    /* Empty opp slot placeholder — visible when fewer than 5 opponents */
-    body.vs-mode .opp-card.empty {
-      border-style: dashed;
-      border-color: rgba(120, 80, 220, 0.3);
-      background: rgba(0, 0, 0, 0.15);
-      box-shadow: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    body.vs-mode .opp-card.empty .opp-empty {
-      color: var(--dim);
-      font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
-      font-weight: 600;
-      font-size: 12px;
-      letter-spacing: 1px;
-      opacity: 0.5;
-      text-align: center;
-    }
-    body.vs-mode .opp-card.empty .opp-name,
-    body.vs-mode .opp-card.empty .opp-body-x,
-    body.vs-mode .opp-card.empty .opp-stats { display: none; }
-
-    /* Reset .app — no padding offset, allow wider */
-    body.vs-mode .app {
-      padding-right: 18px;
-      padding-left: 18px;
-      max-width: 1400px;
-    }
-
-    /* Rank achievement on game over */
-    #rankAchievement { font-size: 26px; padding: 6px 18px; }
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .gesture-hint { display: none; }
-  }
-
-  /* Even wider — give breathing room */
-  @media (min-width: 1200px) {
-    .side { width: clamp(140px, 13vw, 170px); }
-    .panel-stat-value { font-size: 44px; }
-    .panel-canvas { height: clamp(100px, 10vw, 130px); }
+    .side { width: 42px; }
   }
 </style>
 </head>
@@ -1761,58 +418,26 @@
 <div class="app">
 
   <div class="topbar">
-    <div class="score-badge">
-      <div class="medal">1</div>
-      <div class="score-meta">
-        <div class="label">SCORE</div>
-        <div class="value" id="score">0</div>
-      </div>
-      <div class="score-meta best-meta">
-        <div class="label">BEST</div>
-        <div class="value" id="bestScore">0</div>
-      </div>
+    <div class="stat score">
+      <div class="stat-label">SCORE</div>
+      <div class="stat-value" id="score">0</div>
     </div>
-    <div class="time-pill desktop-only">
-      <div class="label">TIME</div>
-      <div class="value" id="gameTime">00:00</div>
+    <div class="stat">
+      <div class="stat-label">LINES</div>
+      <div class="stat-value" id="lines">0</div>
     </div>
-    <button class="icon-btn" id="soundBtn" aria-label="소리">♪</button>
+    <div class="stat" id="levelStat">
+      <div class="stat-label">LV</div>
+      <div class="stat-value" id="level">1</div>
+    </div>
     <button class="icon-btn" id="pauseBtn" aria-label="일시정지">II</button>
-  </div>
-
-  <div class="mobile-vs-bar vs-only" id="mobileVsBar">
-    <div class="mvs-stat">
-      <span class="mvs-label">SCORE</span>
-      <span class="mvs-value" id="scoreMobile">0</span>
-    </div>
-    <div class="mvs-stat">
-      <span class="mvs-label">LINES</span>
-      <span class="mvs-value" id="linesMobile">0</span>
-    </div>
-    <div class="mvs-right-group">
-      <div class="mvs-hold-wrap" aria-label="HOLD">
-        <canvas class="mvs-next-canvas mvs-hold-canvas" id="holdMini"></canvas>
-      </div>
-      <div class="mvs-next-pieces">
-        <canvas class="mvs-next-canvas" id="nextMini1"></canvas>
-        <canvas class="mvs-next-canvas" id="nextMini2"></canvas>
-      </div>
-    </div>
   </div>
 
   <div class="play-area">
     <div class="side left">
-      <div class="panel hold">
-        <div class="panel-label">HOLD</div>
-        <div class="panel-canvas"><canvas class="mini" id="holdView"></canvas></div>
-      </div>
-      <div class="panel stat line">
-        <div class="panel-label">LINE</div>
-        <div class="panel-stat-value" id="lines">0</div>
-      </div>
-      <div class="panel stat level" id="levelStat">
-        <div class="panel-label">LEVEL</div>
-        <div class="panel-stat-value" id="level">1</div>
+      <div class="mini-box hold-box">
+        <span class="mini-label">HOLD</span>
+        <canvas class="mini" id="holdView"></canvas>
       </div>
     </div>
 
@@ -1821,30 +446,19 @@
       <div class="gesture-hint" id="gestureHint">탭=회전 · 좌우=이동 · ↓느리게=소프트 · ↓빠르게=하드</div>
       <div class="level-up-banner" id="levelUpBanner"><span id="levelUpText">LEVEL 2</span></div>
       <div class="countdown-overlay" id="countdownOverlay"><span id="countdownText">3</span></div>
-      <div class="emote-bubble" id="myEmoteBubble"></div>
 
       <div class="overlay start show" id="startOverlay">
         <h2>TETRIS</h2>
-        <div class="nickname-row">
-          <label for="nicknameInput">닉네임</label>
-          <input type="text" id="nicknameInput" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false">
-        </div>
-        <div class="hint mobile-hint">
+        <div class="hint">
           <b>탭</b> = 회전<br>
           <b>좌·우 드래그</b> = 이동<br>
           <b>↓ 천천히 드래그</b> = 소프트 드롭<br>
           <b>↓ 빠르게 플릭</b> = 하드 드롭<br>
           <b>아래 버튼</b> = HOLD
         </div>
-        <div class="hint desktop-hint">
-          <b>← →</b> 이동 · <b>↑ / X</b> 회전 · <b>Z</b> 반시계<br>
-          <b>↓</b> 소프트 드롭 · <b>스페이스</b> 하드 드롭<br>
-          <b>C / Shift</b> HOLD · <b>P</b> 일시정지
-        </div>
         <div class="btn-group">
           <button id="startBtn">솔로 플레이</button>
           <button id="vsBtn" class="alt">VS 모드</button>
-          <button id="rankingBtn" class="ghost">🏆 랭킹</button>
         </div>
       </div>
 
@@ -1855,56 +469,29 @@
           <button id="joinRoomBtn" class="alt">방 참여</button>
           <button id="vsBackBtn" class="ghost">뒤로</button>
         </div>
+        <div id="vsHostWait" style="display:none;flex-direction:column;align-items:center;gap:12px">
+          <p>방 코드</p>
+          <div class="room-code" id="hostCode">----</div>
+          <p class="hint">친구에게 알려주세요</p>
+          <p class="status-line"><span class="conn-dot" id="hostDot"></span><span id="hostStatus">연결 중...</span></p>
+          <button class="ghost" id="hostCancelBtn">취소</button>
+        </div>
         <div id="vsGuestInput" style="display:none;flex-direction:column;align-items:center;gap:12px">
           <p>방 코드 입력</p>
           <input class="room-input" type="text" id="guestCode" maxlength="4" placeholder="----" autocapitalize="characters" autocomplete="off">
           <button id="guestConnectBtn">참여</button>
           <button class="ghost" id="guestCancelBtn">뒤로</button>
         </div>
-        <div id="vsRoom" style="display:none;flex-direction:column;align-items:center;gap:14px;width:100%">
-          <div class="vs-room-info-col">
-            <div class="lobby-header">
-              <button class="lobby-code-wrap" id="copyCodeBtn" type="button">
-                <div class="lobby-code-label"><span class="copy-label-text">방 코드</span><span class="copy-icon">📋</span></div>
-                <div class="lobby-code-value" id="roomCodeLabel">----</div>
-              </button>
-              <div class="lobby-header-right">
-                <div class="room-meta" id="playerCount">1/6</div>
-                <button class="close-btn" id="leaveRoomBtn" aria-label="나가기">✕</button>
-              </div>
-            </div>
-            <p class="status-line"><span class="conn-dot" id="roomDot"></span><span id="roomStatus">연결 중...</span></p>
-            <div class="player-list" id="playerList"></div>
-            <div class="settings-card">
-              <span class="settings-label">공격 방식</span>
-              <div class="attack-mode-toggle" id="attackModeToggle">
-                <button data-mode="payback" class="active" type="button">보복</button>
-                <button data-mode="random" type="button">무작위</button>
-              </div>
-            </div>
-            <div class="action-buttons">
-              <button id="readyBtn">준비</button>
-              <button id="startMatchBtn" style="display:none">시작</button>
-            </div>
-          </div>
-          <div class="vs-room-chat-col">
-            <div class="chat-panel">
-              <div class="chat-messages" id="chatMessages"></div>
-              <form class="chat-input-row" id="chatForm" autocomplete="off">
-                <input type="text" id="chatInput" placeholder="메시지 입력..." maxlength="80" autocomplete="off">
-                <button type="submit" id="chatSendBtn" aria-label="전송">➤</button>
-              </form>
-            </div>
-          </div>
+        <div id="vsGuestWait" style="display:none;flex-direction:column;align-items:center;gap:12px">
+          <p class="status-line"><span class="conn-dot" id="guestDot"></span><span id="guestStatus">연결 중...</span></p>
+          <button class="ghost" id="guestWaitCancelBtn">취소</button>
         </div>
       </div>
 
       <div class="overlay" id="gameOverOverlay">
         <h2>GAME OVER</h2>
         <p id="finalScore">SCORE 0</p>
-        <div id="rankAchievement" style="display:none"></div>
         <button id="restartBtn">다시</button>
-        <button id="viewRankBtn" class="ghost solo-end-only">🏆 랭킹</button>
         <button id="backToMenuBtn" class="ghost">메뉴</button>
       </div>
 
@@ -1912,47 +499,33 @@
         <h2>PAUSED</h2>
         <button id="resumeBtn">계속</button>
       </div>
-
-      <div class="overlay" id="rankingOverlay">
-        <h2 style="color:var(--warn);text-shadow:0 0 12px var(--warn)">🏆 RANKING <span class="ranking-status">...</span></h2>
-        <div class="ranking-list" id="rankingList"></div>
-        <div class="btn-group" style="width:100%;max-width:240px">
-          <button id="rankingCloseBtn">닫기</button>
-          <button id="rankingClearBtn" class="ghost">로컬 기록 초기화</button>
-        </div>
-      </div>
-
-      <div class="overlay" id="finalRankOverlay">
-        <h2 style="color:var(--warn);text-shadow:0 0 12px var(--warn)">🏁 경기 결과</h2>
-        <div class="final-rank-list" id="finalRankList"></div>
-        <div class="btn-group" style="width:100%;max-width:240px">
-          <button id="finalRankCloseBtn">로비로</button>
-        </div>
-      </div>
     </div>
 
     <div class="side right" id="rightPanel">
-      <div class="solo-only panel next">
-        <div class="panel-label">NEXT</div>
-        <div class="panel-canvas"><canvas class="mini" id="next1"></canvas></div>
-        <div class="panel-canvas"><canvas class="mini" id="next2"></canvas></div>
+      <div class="solo-only mini-box next-box main">
+        <span class="mini-label">NEXT</span>
+        <canvas class="mini" id="next1"></canvas>
+      </div>
+      <div class="solo-only mini-box next-box sub">
+        <canvas class="mini" id="next2"></canvas>
+      </div>
+      <div class="solo-only mini-box next-box sub">
+        <canvas class="mini" id="next3"></canvas>
       </div>
 
-      <div class="vs-only panel next">
-        <div class="panel-label">NEXT</div>
-        <div class="panel-canvas"><canvas class="mini" id="vsNext"></canvas></div>
+      <div class="vs-only mini-box next-box main">
+        <span class="mini-label">NEXT</span>
+        <canvas class="mini" id="vsNext"></canvas>
       </div>
-      <div class="vs-only opp-list" id="oppList"></div>
+      <div class="vs-only opp-box">
+        <div class="opp-label">상대</div>
+        <canvas class="opp-board" id="oppBoard"></canvas>
+        <div class="opp-stats">
+          <div><span id="oppScore">0</span></div>
+          <div>LN <span id="oppLines">0</span></div>
+        </div>
+      </div>
     </div>
-  </div>
-
-  <div class="emote-dock vs-only">
-    <button class="emote-btn" data-emote="fire" type="button">🔥</button>
-    <button class="emote-btn" data-emote="sweat" type="button">😅</button>
-    <button class="emote-btn" data-emote="cool" type="button">😎</button>
-    <button class="emote-btn" data-emote="dead" type="button">💀</button>
-    <button class="emote-btn" data-emote="gg" type="button">GG</button>
-    <button class="emote-btn" data-emote="good" type="button">👍</button>
   </div>
 
   <div class="controls">
@@ -1974,43 +547,28 @@
   const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
   const TOPIC_BASE = 'tetris-arena-v1';
   const STATE_INTERVAL = 250;
-  const MAX_PLAYERS = 6;
 
   const board = document.getElementById('board');
   const ctx = board.getContext('2d');
   const holdView = document.getElementById('holdView');
   const hctx = holdView.getContext('2d');
-  const oppListEl = document.getElementById('oppList');
-  const oppCanvases = new Map(); // playerId -> { canvas, ctx, cardEl }
+  const oppBoard = document.getElementById('oppBoard');
+  const oppCtx = oppBoard.getContext('2d');
 
   const soloPreviews = [
     { canvas: document.getElementById('next1'), ctx: null, cell: 9 },
     { canvas: document.getElementById('next2'), ctx: null, cell: 9 },
-    { canvas: document.getElementById('nextMini1'), ctx: null, cell: 6 },
-    { canvas: document.getElementById('nextMini2'), ctx: null, cell: 6 },
+    { canvas: document.getElementById('next3'), ctx: null, cell: 9 },
   ];
   soloPreviews.forEach(p => p.ctx = p.canvas.getContext('2d'));
   const vsPreview = { canvas: document.getElementById('vsNext'), ctx: null, cell: 9 };
   vsPreview.ctx = vsPreview.canvas.getContext('2d');
   const holdEl = { canvas: holdView, ctx: hctx, cell: 9 };
-  const holdMobileCanvas = document.getElementById('holdMini');
-  const holdMobileEl = holdMobileCanvas ? { canvas: holdMobileCanvas, ctx: holdMobileCanvas.getContext('2d'), cell: 6 } : null;
 
-  let BLOCK = 24, dpr = 1;
+  let BLOCK = 24, OPP_BLOCK = 8, dpr = 1;
 
   function sizeMini(el) {
     const box = el.canvas.parentElement;
-    // Mobile mini canvases (HOLD + NEXT): parent uses flex row, size via CSS.
-    if (el.canvas.classList.contains('mvs-next-canvas')) {
-      const w = el.canvas.clientWidth, h = el.canvas.clientHeight;
-      if (w === 0 || h === 0) return;
-      const cell = Math.max(4, Math.floor(Math.min(w, h) / 4));
-      el.cell = cell;
-      el.canvas.width = w * dpr;
-      el.canvas.height = h * dpr;
-      el.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      return;
-    }
     const w = box.clientWidth, h = box.clientHeight;
     if (w === 0 || h === 0) return;
     const size = Math.min(w, h) - 8;
@@ -2024,30 +582,26 @@
     el.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  function sizeOppCards() {
-    if (gameMode !== 'vs') return;
-    for (const [pid, info] of oppCanvases) {
-      const body = info.canvas.parentElement; // .opp-body-x
-      if (!body || body.offsetWidth === 0) continue;
-      const availW = body.clientWidth - 4;
-      const availH = body.clientHeight - 18; // reserve for opp-stats
-      const cell = Math.max(2, Math.floor(Math.min(availW / COLS, availH / ROWS)));
-      info.cell = cell;
-      const w = cell * COLS, hh = cell * ROWS;
-      info.canvas.style.width = w + 'px';
-      info.canvas.style.height = hh + 'px';
-      info.canvas.width = w * dpr;
-      info.canvas.height = hh * dpr;
-      info.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
+  function sizeOppBoard() {
+    const box = oppBoard.parentElement;
+    if (!box || box.offsetWidth === 0) return;
+    const availW = box.clientWidth - 8;
+    const availH = box.clientHeight - 30;
+    let cell = Math.floor(Math.min(availW / COLS, availH / ROWS));
+    OPP_BLOCK = Math.max(3, cell);
+    const w = OPP_BLOCK * COLS, hh = OPP_BLOCK * ROWS;
+    oppBoard.style.width = w + 'px';
+    oppBoard.style.height = hh + 'px';
+    oppBoard.width = w * dpr;
+    oppBoard.height = hh * dpr;
+    oppCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
   function fitCanvas() {
     const wrap = document.getElementById('boardWrap');
     const w = wrap.clientWidth, h = wrap.clientHeight;
     const cell = Math.floor(Math.min(w / COLS, h / ROWS));
-    // Floor of 12px for legibility; cap at 44px to avoid an oversized board on wide desktops
-    BLOCK = Math.min(44, Math.max(12, cell));
+    BLOCK = Math.max(12, cell);
     dpr = Math.min(window.devicePixelRatio || 1, 2);
     board.style.width = (BLOCK * COLS) + 'px';
     board.style.height = (BLOCK * ROWS) + 'px';
@@ -2057,10 +611,9 @@
     soloPreviews.forEach(sizeMini);
     sizeMini(vsPreview);
     sizeMini(holdEl);
-    if (holdMobileEl) sizeMini(holdMobileEl);
-    if (gameMode === 'vs') sizeOppCards();
+    if (gameMode === 'vs') sizeOppBoard();
     draw();
-    drawAllOpps();
+    drawOppBoard();
   }
 
   const PIECES = {
@@ -2119,294 +672,29 @@
   let lastTime = 0;
   let running = false, paused = false, over = false;
   let rafId = null;
-  // Solo timer
-  let gameStartTime = 0;
-  let pausedDuration = 0;
-  let pauseStart = 0;
-  let lastTimeUpdate = 0;
 
   // FX state
   let clearing = null;
   let popups = [];
   let shake = 0, boardFlash = 0;
 
-  // VS state — multi-player
+  // VS state
   let mqttClient = null;
   let myPlayerId = 'p' + Math.random().toString(36).slice(2, 8);
-  const AUTO_NAME = 'P-' + myPlayerId.slice(1, 5).toUpperCase();
-  let myName = (() => {
-    try { return localStorage.getItem('tetris-nickname-v1') || AUTO_NAME; }
-    catch { return AUTO_NAME; }
-  })();
   let roomCode = null;
-  let isHost = false;
-  let myReady = false;
-  let pendingAttacks = []; // [{ from, amount, hole }]
-  let lastAttackerId = null;
+  let myRole = null;
+  let opponentId = null;
+  let opponentReady = false;
+  let pendingAttacks = [];
+  let oppGrid = newGrid();
+  let oppScore = 0, oppLines = 0, oppOver = false;
   let lastBroadcast = 0;
-  let rosterTimer = null;
-  let inMatch = false;
-  // players: id -> { id, name, isHost, ready, alive, board, score, lines, level, lastSeen }
-  let players = new Map();
+  let helloInterval = null;
+  let myRematchReady = false;
+  let oppRematchReady = false;
   let countdownActive = false;
-  let matchResolved = false; // VS: true once a winner is declared this match
-  let attackMode = 'payback'; // 'payback' | 'random' — host controls, synced via settings
 
   function buzz(ms = 8) { if (navigator.vibrate) navigator.vibrate(ms); }
-
-  // ========================================================================
-  // AUDIO ENGINE — Web Audio API, fully synthesized (no external files).
-  // BGM is "Korobeiniki", a Russian folk song from 1861 (public domain),
-  // synthesized here from note frequencies (not a copyrighted recording).
-  // ========================================================================
-  const Audio = (() => {
-    let ctx = null;
-    let master = null, sfxGain = null, musicGain = null;
-    let noiseBuffer = null;
-    let enabled = true;
-    let unlocked = false;
-
-    // BGM scheduler state
-    let bgmPlaying = false;
-    let bgmTimer = null;
-    let nextNoteTime = 0;
-    let stepIndex = 0;
-    const LOOKAHEAD = 0.1;       // sec, schedule window
-    const TICK = 25;             // ms, scheduler interval
-    let tempo = 144;            // BPM (will speed up with level)
-
-    function noteFreq(n) {
-      // n like "E5", "A4", "C#5", "R" (rest)
-      if (n === 'R') return 0;
-      const NOTES = { C:0, 'C#':1, D:2, 'D#':3, E:4, F:5, 'F#':6, G:7, 'G#':8, A:9, 'A#':10, B:11 };
-      const m = n.match(/^([A-G]#?)(\d)$/);
-      if (!m) return 0;
-      const semis = NOTES[m[1]] + (parseInt(m[2]) - 4) * 12;
-      return 440 * Math.pow(2, (semis - 9) / 12); // A4 = 440 (A4 is semitone 9 in octave 4)
-    }
-
-    // Korobeiniki main theme — [note, beats]. Faithful folk melody.
-    const MELODY = [
-      ['E5',1],['B4',0.5],['C5',0.5],['D5',1],['C5',0.5],['B4',0.5],
-      ['A4',1],['A4',0.5],['C5',0.5],['E5',1],['D5',0.5],['C5',0.5],
-      ['B4',1.5],['C5',0.5],['D5',1],['E5',1],
-      ['C5',1],['A4',1],['A4',1],['R',1],
-      ['R',0.5],['D5',1],['F5',0.5],['A5',1],['G5',0.5],['F5',0.5],
-      ['E5',1.5],['C5',0.5],['E5',1],['D5',0.5],['C5',0.5],
-      ['B4',1],['B4',0.5],['C5',0.5],['D5',1],['E5',1],
-      ['C5',1],['A4',1],['A4',1],['R',1],
-      // Lower section
-      ['E5',2],['C5',2],
-      ['D5',2],['B4',2],
-      ['C5',2],['A4',2],
-      ['G#4',2],['B4',1],['R',1],
-      ['E5',2],['C5',2],
-      ['D5',2],['B4',2],
-      ['C5',1],['E5',1],['A5',2],
-      ['G#5',2],['R',2],
-    ];
-    // Simple bass line (one note per 2 beats), root movement
-    const BASS = [
-      'E2','A2','E2','A2','E2','A2','E2','A2',
-      'D2','D2','E2','A2','D2','D2','E2','A2',
-      'A2','A2','G2','G2','C3','C3','E2','E2',
-      'A2','A2','G2','G2','C3','C3','E2','E2',
-      'A2','A2','G2','G2','A2','A2','E2','E2',
-    ];
-
-    function ensureCtx() {
-      if (ctx) return ctx;
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) { enabled = false; return null; }
-      ctx = new AC();
-      master = ctx.createGain();
-      master.gain.value = 1.0;
-      const limiter = ctx.createDynamicsCompressor();
-      limiter.threshold.value = -3;
-      limiter.knee.value = 6;
-      limiter.ratio.value = 12;
-      limiter.attack.value = 0.003;
-      limiter.release.value = 0.1;
-      master.connect(limiter);
-      limiter.connect(ctx.destination);
-      sfxGain = ctx.createGain();
-      sfxGain.gain.value = 1.3;
-      sfxGain.connect(master);
-      musicGain = ctx.createGain();
-      musicGain.gain.value = 0.1;
-      musicGain.connect(master);
-      // white noise buffer for percussion
-      const len = ctx.sampleRate * 0.5;
-      noiseBuffer = ctx.createBuffer(1, len, ctx.sampleRate);
-      const data = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
-      return ctx;
-    }
-
-    function unlock() {
-      if (unlocked) return;
-      const c = ensureCtx();
-      if (!c) return;
-      if (c.state === 'suspended') c.resume();
-      unlocked = true;
-    }
-
-    // ---- SFX primitives ----
-    function tone(freq, t0, dur, type = 'square', vol = 0.5, glideTo = null) {
-      if (!enabled || !ctx || freq <= 0) return;
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, t0);
-      if (glideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(20, glideTo), t0 + dur);
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.005);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      osc.connect(g); g.connect(sfxGain);
-      osc.start(t0); osc.stop(t0 + dur + 0.02);
-    }
-
-    function noise(t0, dur, vol = 0.4, lowpass = 2000) {
-      if (!enabled || !ctx) return;
-      const src = ctx.createBufferSource();
-      src.buffer = noiseBuffer;
-      const g = ctx.createGain();
-      const lp = ctx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.frequency.setValueAtTime(lowpass, t0);
-      lp.frequency.exponentialRampToValueAtTime(Math.max(200, lowpass * 0.3), t0 + dur);
-      g.gain.setValueAtTime(vol, t0);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      src.connect(lp); lp.connect(g); g.connect(sfxGain);
-      src.start(t0); src.stop(t0 + dur + 0.02);
-    }
-
-    const SFX = {
-      move()    { if (!ctx) return; tone(220, ctx.currentTime, 0.03, 'square', 0.28); },
-      rotate()  { if (!ctx) return; tone(440, ctx.currentTime, 0.05, 'triangle', 0.4, 660); },
-      soft()    { if (!ctx) return; tone(160, ctx.currentTime, 0.025, 'square', 0.2); },
-      hard()    { if (!ctx) return; const t = ctx.currentTime; noise(t, 0.12, 0.7, 1200); tone(120, t, 0.12, 'sawtooth', 0.45, 50); },
-      lock()    { if (!ctx) return; tone(180, ctx.currentTime, 0.05, 'square', 0.3); },
-      place()   { if (!ctx) return; const t = ctx.currentTime; tone(300, t, 0.06, 'square', 0.45, 150); noise(t, 0.05, 0.35, 1500); },
-      lineWhoosh(n) { if (!ctx) return; const t = ctx.currentTime; noise(t, 0.12 + n*0.03, 0.5, 3500); },
-      hold()    { if (!ctx) return; const t = ctx.currentTime; tone(520, t, 0.06, 'sine', 0.45, 720); },
-      single()  { if (!ctx) return; const t = ctx.currentTime; [523,659].forEach((f,i)=>tone(f, t+i*0.06, 0.12, 'square', 0.45)); },
-      double()  { if (!ctx) return; const t = ctx.currentTime; [523,659,784].forEach((f,i)=>tone(f, t+i*0.06, 0.13, 'square', 0.48)); },
-      triple()  { if (!ctx) return; const t = ctx.currentTime; [523,659,784,1047].forEach((f,i)=>tone(f, t+i*0.06, 0.14, 'square', 0.5)); },
-      tetris()  { if (!ctx) return; const t = ctx.currentTime; [523,659,784,1047,1319].forEach((f,i)=>tone(f, t+i*0.07, 0.2, 'sawtooth', 0.55)); noise(t, 0.3, 0.45, 3000); },
-      combo(n)  { if (!ctx) return; const t = ctx.currentTime; const base = 600 + n*80; tone(base, t, 0.1, 'triangle', 0.45, base*1.5); },
-      levelup() { if (!ctx) return; const t = ctx.currentTime; [392,523,659,784,1047].forEach((f,i)=>tone(f, t+i*0.08, 0.25, 'triangle', 0.5)); },
-      garbage() { if (!ctx) return; const t = ctx.currentTime; noise(t, 0.18, 0.6, 800); tone(90, t, 0.18, 'sawtooth', 0.45, 40); },
-      gameover(){ if (!ctx) return; const t = ctx.currentTime; [523,440,349,262,196].forEach((f,i)=>tone(f, t+i*0.18, 0.3, 'sawtooth', 0.5)); },
-      countTick(){ if (!ctx) return; tone(660, ctx.currentTime, 0.12, 'square', 0.55); },
-      countGo() { if (!ctx) return; const t = ctx.currentTime; [880,1320].forEach((f,i)=>tone(f, t+i*0.05, 0.25, 'square', 0.6)); },
-      click()   { if (!ctx) return; tone(440, ctx.currentTime, 0.05, 'square', 0.4, 600); },
-    };
-
-    function play(name, arg) {
-      if (!enabled) return;
-      ensureCtx();
-      if (!ctx) return;
-      if (ctx.state === 'suspended') ctx.resume();
-      if (SFX[name]) SFX[name](arg);
-    }
-
-    // ---- BGM scheduler ----
-    function scheduleNote(noteArr, time, beatDur) {
-      const [note, beats] = noteArr;
-      const f = noteFreq(note);
-      const dur = beats * beatDur;
-      if (f > 0) {
-        // melody: bright square with slight decay
-        const osc = ctx.createOscillator();
-        const g = ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.value = f;
-        const peak = 0.5;
-        g.gain.setValueAtTime(0.0001, time);
-        g.gain.exponentialRampToValueAtTime(peak, time + 0.01);
-        g.gain.setValueAtTime(peak, time + dur * 0.7);
-        g.gain.exponentialRampToValueAtTime(0.0001, time + dur * 0.95);
-        osc.connect(g); g.connect(musicGain);
-        osc.start(time); osc.stop(time + dur);
-      }
-    }
-
-    function scheduleBass(idx, time, beatDur) {
-      // bass plays one note every 2 beats; idx is the step index
-      if (idx % 2 !== 0) return;
-      const bi = (idx / 2) % BASS.length;
-      const f = noteFreq(BASS[Math.floor(bi)]);
-      if (f <= 0) return;
-      const dur = 2 * beatDur;
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.value = f;
-      g.gain.setValueAtTime(0.0001, time);
-      g.gain.exponentialRampToValueAtTime(0.5, time + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, time + dur * 0.9);
-      osc.connect(g); g.connect(musicGain);
-      osc.start(time); osc.stop(time + dur);
-    }
-
-    function scheduler() {
-      if (!bgmPlaying || !ctx) return;
-      const beatDur = 60 / tempo;
-      while (nextNoteTime < ctx.currentTime + LOOKAHEAD) {
-        const step = MELODY[stepIndex];
-        scheduleNote(step, nextNoteTime, beatDur);
-        // bass aligned to cumulative beats — approximate with stepIndex parity
-        scheduleBass(stepIndex, nextNoteTime, beatDur);
-        nextNoteTime += step[1] * beatDur;
-        stepIndex = (stepIndex + 1) % MELODY.length;
-      }
-      bgmTimer = setTimeout(scheduler, TICK);
-    }
-
-    function startBgm() {
-      if (!enabled) return;
-      ensureCtx();
-      if (!ctx) return;
-      if (ctx.state === 'suspended') ctx.resume();
-      if (bgmPlaying) return;
-      bgmPlaying = true;
-      stepIndex = 0;
-      nextNoteTime = ctx.currentTime + 0.1;
-      scheduler();
-    }
-    function stopBgm() {
-      bgmPlaying = false;
-      if (bgmTimer) { clearTimeout(bgmTimer); bgmTimer = null; }
-    }
-    function pauseBgm() {
-      if (ctx && bgmPlaying) ctx.suspend();
-    }
-    function resumeBgm() {
-      if (ctx && bgmPlaying) ctx.resume();
-    }
-    function setTempo(bpm) { tempo = bpm; }
-
-    function toggle() {
-      enabled = !enabled;
-      if (!enabled) {
-        if (master) master.gain.value = 0;
-      } else {
-        ensureCtx();
-        if (master) master.gain.value = 1.0;
-      }
-      return enabled;
-    }
-    function isEnabled() { return enabled; }
-
-    return { play, unlock, startBgm, stopBgm, pauseBgm, resumeBgm, setTempo, toggle, isEnabled, ensureCtx };
-  })();
-
-  // BGM tempo scales gently with level
-  function bgmTempoForLevel(lv) {
-    // Noticeably faster each level, capped so it stays playable
-    return Math.min(280, 130 + (lv - 1) * 16);
-  }
 
   function newGrid() {
     return Array.from({length: ROWS}, () => Array(COLS).fill(0));
@@ -2481,14 +769,13 @@
   }
   function move(dx) {
     if (!collide(current, dx, 0)) {
-      current.x += dx; buzz(3); Audio.play('move'); tryResetLock(); return true;
+      current.x += dx; buzz(3); tryResetLock(); return true;
     }
     return false;
   }
   function softDrop() {
     if (!collide(current, 0, 1)) {
       current.y++; score += 1; updateStats();
-      Audio.play('soft');
       dropCounter = 0;
       return true;
     }
@@ -2502,14 +789,12 @@
     updateStats();
     shake = Math.min(8, 3 + dist * 0.3);
     buzz(18);
-    Audio.play('hard');
     lockPiece();
   }
 
   function lockPiece() {
     if (clearing) return;
     merge();
-    Audio.play('place'); // placement feedback on every lock
     const fullRows = findFullRows();
     if (fullRows.length > 0) {
       const meanY = fullRows.reduce((a,b) => a+b, 0) / fullRows.length;
@@ -2519,16 +804,8 @@
       let total = base;
       if (chain >= 2) total += 50 * chain * level;
       clearing = { rows: fullRows, elapsed: 0, points: total, cleared, meanY };
-      // Fire line-clear sound immediately (tight with the placement), not after the anim
-      Audio.play('lineWhoosh', cleared);
-      if (cleared === 4) Audio.play('tetris');
-      else if (cleared === 3) Audio.play('triple');
-      else if (cleared === 2) Audio.play('double');
-      else Audio.play('single');
-      if (chain >= 2) Audio.play('combo', chain);
     } else {
       chain = 0;
-      Audio.play('lock');
       applyPendingGarbage();
       spawn();
       canHold = true;
@@ -2545,7 +822,7 @@
     for (const kick of kicks) {
       if (!collide(current, kick, 0, newShape)) {
         current.x += kick; current.rotation = newRot; current.shape = newShape;
-        buzz(6); Audio.play('rotate'); tryResetLock(); return;
+        buzz(6); tryResetLock(); return;
       }
     }
   }
@@ -2553,7 +830,6 @@
   function doHold() {
     if (!canHold || clearing) return;
     buzz(10);
-    Audio.play('hold');
     const curName = current.name;
     if (hold === null) {
       hold = curName;
@@ -2593,16 +869,14 @@
       buzz(35);
       boardFlash = 1;
       showLevelUpBanner(level);
-      Audio.play('levelup');
-      Audio.setTempo(bgmTempoForLevel(level));
     }
     const px = (COLS / 2) * BLOCK;
     const py = (c.meanY + 0.5) * BLOCK;
     let label = '';
     if (c.cleared === 4) { label = 'TETRIS!'; shake = Math.max(shake, 12); boardFlash = Math.max(boardFlash, 0.8); }
-    else if (c.cleared === 3) { label = 'TRIPLE'; }
-    else if (c.cleared === 2) { label = 'DOUBLE'; }
-    else { label = 'SINGLE'; }
+    else if (c.cleared === 3) label = 'TRIPLE';
+    else if (c.cleared === 2) label = 'DOUBLE';
+    else label = 'SINGLE';
     addPopup(label + ' +' + c.points, c.cleared === 4 ? '#ffe14a' : '#f0eaff', px, py, c.cleared === 4);
     if (chain >= 2) {
       addPopup('COMBO x' + chain, '#ff2e88', px, py - BLOCK * 1.5, false);
@@ -2666,7 +940,6 @@
     pendingAttacks = [];
     if (totalApplied > 0) {
       buzz(15);
-      Audio.play('garbage');
       shake = Math.max(shake, totalApplied * 1.2);
     }
   }
@@ -2787,7 +1060,7 @@
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.fillStyle = p.color;
-      ctx.font = `700 ${Math.floor(BLOCK * 0.85 * scale)}px "Rajdhani", sans-serif`;
+      ctx.font = `${Math.floor(BLOCK * 0.85 * scale)}px "VT323", monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.shadowColor = p.color;
@@ -2801,15 +1074,12 @@
 
   function drawMini(el, piece, dim = false) {
     const x = el.ctx, cell = el.cell;
-    const cssW = el.canvas.clientWidth || (4 * cell);
-    const cssH = el.canvas.clientHeight || (4 * cell);
-    x.clearRect(0, 0, cssW, cssH);
+    x.clearRect(0, 0, 4 * cell, 4 * cell);
     if (!piece) return;
     const shape = (typeof piece === 'string') ? PIECES[piece].shapes[0] : piece.shape;
     const color = (typeof piece === 'string') ? PIECES[piece].color : piece.color;
     const w = shape[0].length, h = shape.length;
-    const offX = (cssW / cell - w) / 2;
-    const offY = (cssH / cell - h) / 2;
+    const offX = (4 - w) / 2, offY = (4 - h) / 2;
     x.globalAlpha = dim ? 0.45 : 1;
     for (let r = 0; r < h; r++) {
       for (let cc = 0; cc < w; cc++) {
@@ -2829,161 +1099,76 @@
 
   function drawPreviews() {
     if (gameMode === 'solo') {
-      soloPreviews.forEach((p, i) => drawMini(p, queue[i % 2] || null));
+      soloPreviews.forEach((p, i) => drawMini(p, queue[i] || null));
     } else {
-      // VS mode — also draw mobile mini previews and vsPreview
       drawMini(vsPreview, queue[0] || null);
-      // soloPreviews entries 2,3 are mobile-only canvases used in VS too
-      if (soloPreviews[2]) drawMini(soloPreviews[2], queue[0] || null);
-      if (soloPreviews[3]) drawMini(soloPreviews[3], queue[1] || null);
     }
   }
-  function drawHold() {
-    drawMini(holdEl, hold, !canHold);
-    if (holdMobileEl) drawMini(holdMobileEl, hold, !canHold);
-  }
+  function drawHold() { drawMini(holdEl, hold, !canHold); }
 
-  function drawOpp(pid) {
-    const info = oppCanvases.get(pid);
-    const p = players.get(pid);
-    if (!info || !p) return;
-    const cell = info.cell;
-    const ctx2 = info.ctx;
-    const w = COLS * cell, hh = ROWS * cell;
-    ctx2.fillStyle = '#07001f';
-    ctx2.fillRect(0, 0, w, hh);
-    if (p.board) {
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          if (p.board[r] && p.board[r][c]) {
-            ctx2.fillStyle = p.board[r][c];
-            ctx2.fillRect(c * cell, r * cell, cell - 0.4, cell - 0.4);
-          }
+  function drawOppBoard() {
+    if (gameMode !== 'vs') return;
+    const w = COLS * OPP_BLOCK, hh = ROWS * OPP_BLOCK;
+    oppCtx.fillStyle = '#07001f';
+    oppCtx.fillRect(0, 0, w, hh);
+    oppCtx.strokeStyle = 'rgba(120,80,220,0.1)';
+    oppCtx.lineWidth = 0.5;
+    for (let x = 1; x < COLS; x++) {
+      oppCtx.beginPath();
+      oppCtx.moveTo(x * OPP_BLOCK + 0.5, 0);
+      oppCtx.lineTo(x * OPP_BLOCK + 0.5, hh);
+      oppCtx.stroke();
+    }
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (oppGrid[r] && oppGrid[r][c]) {
+          oppCtx.fillStyle = oppGrid[r][c];
+          oppCtx.fillRect(c * OPP_BLOCK, r * OPP_BLOCK, OPP_BLOCK - 0.5, OPP_BLOCK - 0.5);
         }
       }
     }
-    // Update stats text + classes
-    const card = info.cardEl;
-    const stats = card.querySelector('.opp-stats');
-    if (stats) stats.innerHTML = `<span>${p.score}</span> · LN <span>${p.lines}</span>`;
-    card.classList.toggle('dead', !p.alive);
-    card.classList.toggle('target', !!(p.alive && lastAttackerId === pid));
-    const ko = card.querySelector('.opp-ko');
-    if (!p.alive && !ko) {
-      const koEl = document.createElement('div');
-      koEl.className = 'opp-ko';
-      koEl.textContent = 'K.O.';
-      card.querySelector('.opp-body-x').appendChild(koEl);
-    } else if (p.alive && ko) {
-      ko.remove();
+    if (oppOver) {
+      oppCtx.fillStyle = 'rgba(255,46,136,0.4)';
+      oppCtx.fillRect(0, 0, w, hh);
+      oppCtx.fillStyle = '#fff';
+      oppCtx.font = `bold ${Math.floor(OPP_BLOCK * 2)}px "Major Mono Display", monospace`;
+      oppCtx.textAlign = 'center';
+      oppCtx.textBaseline = 'middle';
+      oppCtx.fillText('K.O.', w/2, hh/2);
     }
-  }
-
-  function drawAllOpps() {
-    if (gameMode !== 'vs') return;
-    for (const pid of oppCanvases.keys()) drawOpp(pid);
   }
 
   function updateStats() {
     document.getElementById('score').textContent = score;
     document.getElementById('lines').textContent = lines;
     document.getElementById('level').textContent = level;
-    const sm = document.getElementById('scoreMobile');
-    const lm = document.getElementById('linesMobile');
-    if (sm) sm.textContent = score.toLocaleString();
-    if (lm) lm.textContent = lines;
-  }
-
-  function formatTime(ms) {
-    const s = Math.max(0, Math.floor(ms / 1000));
-    const m = Math.floor(s / 60);
-    const ss = s % 60;
-    return String(m).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
-  }
-
-  function updateTimeDisplay() {
-    const el = document.getElementById('gameTime');
-    if (!el) return;
-    if (gameStartTime === 0) {
-      el.textContent = '00:00';
-      return;
-    }
-    const elapsed = running && !paused
-      ? Date.now() - gameStartTime - pausedDuration
-      : (gameStartTime === 0 ? 0 : (pauseStart || Date.now()) - gameStartTime - pausedDuration);
-    el.textContent = formatTime(elapsed);
-  }
-
-  function updateBest() {
-    const el = document.getElementById('bestScore');
-    if (!el) return;
-    const top = Ranking.topScore();
-    el.textContent = top ? top.toLocaleString() : '0';
   }
 
   function updateOppStats() {
-    // Stats are updated inline within drawOpp() now
-    drawAllOpps();
+    document.getElementById('oppScore').textContent = oppScore;
+    document.getElementById('oppLines').textContent = oppLines;
   }
 
-  async function gameOver() {
+  function gameOver() {
     running = false;
     over = true;
     buzz(80);
-    Audio.play('gameover');
-    Audio.stopBgm();
     if (gameMode === 'vs') {
-      // Mark self dead and compute my rank
-      const me = players.get(myPlayerId);
-      if (me && me.alive) {
-        const aliveCount = [...players.values()].filter(x => x.alive).length;
-        me.finalRank = aliveCount;
-        me.alive = false;
-        me.score = score;
-      }
       sendOver();
-      checkVsWinner();
-      if (!matchResolved) showVsResult(false, true);
+      showVsResult(false);
     } else {
-      // Solo: submit to ranking (server-first), show achievement
-      const ach = document.getElementById('rankAchievement');
-      ach.style.display = 'none';
-      const ov = document.getElementById('gameOverOverlay');
-      document.getElementById('finalScore').innerHTML = `SCORE ${score.toLocaleString()}`;
-      ov.classList.add('show');
-      if (score > 0) {
-        const result = await Ranking.add({ score, lines, level, date: Date.now(), name: myName });
-        if (result && result.rank > 0) {
-          ach.style.display = '';
-          const tag = result.mode === 'online' ? '🌐' : '📱';
-          ach.textContent = `${tag} TOP ${result.rank} 진입!`;
-          Audio.play('levelup');
-        }
-        const top = Ranking.topScore();
-        const topStr = top > 0 ? `<div style="font-size:13px;color:var(--dim);margin-top:6px">최고 기록 ${top.toLocaleString()}</div>` : '';
-        document.getElementById('finalScore').innerHTML = `SCORE ${score.toLocaleString()}${topStr}`;
-        updateBest();
-      }
-      // Freeze timer at final value
-      updateTimeDisplay();
+      document.getElementById('finalScore').textContent = 'SCORE ' + score;
+      document.getElementById('gameOverOverlay').classList.add('show');
     }
   }
 
-  function showVsResult(won, isLast) {
+  function showVsResult(won) {
     const ov = document.getElementById('gameOverOverlay');
     ov.classList.remove('win', 'lose');
     ov.classList.add(won ? 'win' : 'lose');
-    if (won) {
-      ov.querySelector('h2').textContent = '🏆 1등!';
-    } else {
-      const me = players.get(myPlayerId);
-      const rank = me?.finalRank;
-      ov.querySelector('h2').textContent = rank ? `${rank}등 탈락` : '탈락';
-    }
-    document.getElementById('finalScore').textContent = 'SCORE ' + score.toLocaleString();
-    document.getElementById('rankAchievement').style.display = 'none';
-    document.getElementById('restartBtn').textContent = '로비로';
-    document.getElementById('restartBtn').style.opacity = '';
+    ov.querySelector('h2').textContent = won ? 'YOU WIN!' : 'LOSE';
+    document.getElementById('finalScore').textContent = 'SCORE ' + score + '  ·  상대 ' + oppScore;
+    resetRestartBtn();
     ov.classList.add('show');
   }
 
@@ -3010,18 +1195,12 @@
           if (dropCounter >= dropInterval) { current.y++; dropCounter = 0; }
         }
       }
-      if (gameMode === 'vs' && inMatch && !over) {
+      if (gameMode === 'vs' && opponentReady && !over) {
         lastBroadcast += delta;
         if (lastBroadcast >= STATE_INTERVAL) {
           broadcastState();
           lastBroadcast = 0;
         }
-      }
-      // Update TIME display once a second to avoid layout thrash
-      const nowMs = Date.now();
-      if (nowMs - lastTimeUpdate >= 1000) {
-        lastTimeUpdate = nowMs;
-        updateTimeDisplay();
       }
       draw();
     }
@@ -3039,37 +1218,16 @@
     lockTimer = 0; lockResets = 0;
     clearing = null; popups = []; shake = 0; boardFlash = 0;
     pendingAttacks = [];
-    lastAttackerId = null;
-    // Reset timer
-    gameStartTime = Date.now();
-    pausedDuration = 0;
-    pauseStart = 0;
-    lastTimeUpdate = 0;
-    updateTimeDisplay();
-    updateBest();
-    if (gameMode === 'vs') {
-      // Reset all players' in-match state
-      for (const p of players.values()) {
-        p.alive = true;
-        p.board = newGrid();
-        p.score = 0; p.lines = 0; p.level = 1;
-        p.finalRank = null;
-      }
-      inMatch = true;
-      rebuildOppList();
-      sizeOppCards();
-    }
+    oppGrid = newGrid();
+    oppScore = 0; oppLines = 0; oppOver = false;
     spawn();
     updateStats();
+    updateOppStats();
     drawHold();
-    drawAllOpps();
+    drawOppBoard();
     running = true; paused = false; over = false;
     closeAllOverlays();
-    const ach = document.getElementById('rankAchievement');
-    if (ach) ach.style.display = 'none';
     showGestureHint();
-    Audio.setTempo(bgmTempoForLevel(1));
-    Audio.startBgm();
     if (rafId) cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(loop);
   }
@@ -3087,58 +1245,22 @@
   function togglePause() {
     if (!running || over) return;
     paused = !paused;
-    if (paused) {
-      pauseStart = Date.now();
-      Audio.pauseBgm();
-    } else {
-      if (pauseStart) pausedDuration += Date.now() - pauseStart;
-      pauseStart = 0;
-      Audio.resumeBgm();
-    }
     document.getElementById('pauseOverlay').classList.toggle('show', paused);
   }
 
   function returnToMenu() {
     running = false; over = false; paused = false;
-    Audio.stopBgm();
     if (rafId) cancelAnimationFrame(rafId);
     if (gameMode === 'vs') disconnectMqtt();
     gameMode = 'solo';
     document.body.classList.remove('vs-mode');
+    myRematchReady = false;
+    oppRematchReady = false;
     countdownActive = false;
-    matchResolved = false;
-    inMatch = false;
+    resetRestartBtn();
     closeAllOverlays();
     document.getElementById('startOverlay').classList.add('show');
     setTimeout(fitCanvas, 50);
-  }
-
-  function backToLobby() {
-    // Multi-player: keep MQTT connection, return to room screen, reset ready states
-    running = false; over = false; paused = false;
-    Audio.stopBgm();
-    if (rafId) cancelAnimationFrame(rafId);
-    countdownActive = false;
-    matchResolved = false;
-    inMatch = false;
-    document.getElementById('finalRankOverlay').classList.remove('show');
-    // Reset everyone's ready (each player must re-ready)
-    for (const p of players.values()) {
-      p.ready = false;
-      p.alive = true;
-      p.board = newGrid();
-      p.score = 0; p.lines = 0;
-      p.finalRank = null;
-    }
-    myReady = false;
-    closeAllOverlays();
-    document.getElementById('vsLobby').classList.add('show');
-    showLobbyScreen('vsRoom');
-    refreshPlayerList();
-    refreshReadyBtn();
-    refreshStartBtn();
-    // Announce current state
-    sendMessage({ type: 'roster', name: myName, isHost, ready: false });
   }
 
   // Keyboard fallback for desktop
@@ -3301,30 +1423,14 @@
     doHold();
   });
 
-  function requireNickname() {
-    const input = document.getElementById('nicknameInput');
-    if (!input) return true;
-    if (input.value.trim().length === 0) {
-      const row = input.closest('.nickname-row');
-      if (row) {
-        row.classList.add('error');
-        setTimeout(() => row.classList.remove('error'), 800);
-      }
-      input.focus();
-      return false;
-    }
-    return true;
-  }
-
   safeBind('startBtn', () => {
-    if (!requireNickname()) return;
     gameMode = 'solo';
     document.body.classList.remove('vs-mode');
     setTimeout(() => { fitCanvas(); startGame(); }, 30);
   });
   safeBind('restartBtn', () => {
     if (gameMode === 'vs') {
-      backToLobby();
+      requestRematch();
     } else {
       startGame();
     }
@@ -3333,14 +1439,6 @@
   safeBind('resumeBtn', togglePause);
   safeBind('pauseBtn', togglePause);
 
-  safeBind('soundBtn', () => {
-    const on = Audio.toggle();
-    const btn = document.getElementById('soundBtn');
-    btn.textContent = on ? '♪' : '♪̸';
-    btn.style.opacity = on ? '' : '0.4';
-    btn.style.color = on ? '' : 'var(--hot)';
-  });
-
   // ===== VS Lobby =====
   function generateRoomCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -3348,257 +1446,16 @@
   }
 
   function showLobbyScreen(screen) {
-    ['vsChoice', 'vsGuestInput', 'vsRoom'].forEach(id => {
+    ['vsChoice', 'vsHostWait', 'vsGuestInput', 'vsGuestWait'].forEach(id => {
       document.getElementById(id).style.display = (id === screen) ? 'flex' : 'none';
     });
   }
-
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-  }
-
-  function enterRoom() {
-    document.getElementById('roomCodeLabel').textContent = roomCode;
-    document.getElementById('roomDot').className = 'conn-dot';
-    document.getElementById('roomStatus').textContent = '브로커 연결 중...';
-    showLobbyScreen('vsRoom');
-
-    players.clear();
-    players.set(myPlayerId, {
-      id: myPlayerId, name: myName, isHost, ready: false, alive: true,
-      board: newGrid(), score: 0, lines: 0, level: 1, lastSeen: Date.now()
-    });
-    myReady = false;
-    inMatch = false;
-    matchResolved = false;
-    // Host sets default attack mode; guests use host's setting once received
-    if (isHost) attackMode = 'payback';
-    refreshPlayerList();
-    refreshReadyBtn();
-    refreshStartBtn();
-    refreshAttackModeUI();
-    clearChat();
-
-    connectMqtt().then(() => {
-      document.getElementById('roomDot').className = 'conn-dot ok';
-      sendMessage({ type: 'hello', name: myName, isHost });
-      if (isHost) sendMessage({ type: 'settings', attackMode });
-      if (rosterTimer) clearInterval(rosterTimer);
-      rosterTimer = setInterval(() => {
-        if (!inMatch) {
-          sendMessage({ type: 'roster', name: myName, isHost, ready: myReady });
-          if (isHost) sendMessage({ type: 'settings', attackMode });
-        }
-      }, 2500);
-      // Enforce room cap shortly after handshake settles
-      setTimeout(() => {
-        if (players.size > MAX_PLAYERS) {
-          alert(`방이 가득 찼습니다 (최대 ${MAX_PLAYERS}명)`);
-          disconnectMqtt();
-          showLobbyScreen('vsChoice');
-          return;
-        }
-        document.getElementById('roomStatus').textContent = '로비 — 준비를 눌러주세요';
-      }, 1500);
-    }).catch(err => {
-      document.getElementById('roomStatus').textContent = '연결 실패: ' + err.message;
-      document.getElementById('roomDot').className = 'conn-dot err';
-    });
-  }
-
-  function refreshPlayerList() {
-    const list = document.getElementById('playerList');
-    if (!list) return;
-    list.innerHTML = '';
-    const arr = [...players.values()].sort((a, b) => {
-      if (a.id === myPlayerId) return -1;
-      if (b.id === myPlayerId) return 1;
-      if (a.isHost !== b.isHost) return a.isHost ? -1 : 1;
-      return (a.name || '').localeCompare(b.name || '');
-    });
-    for (const p of arr) {
-      const div = document.createElement('div');
-      div.className = 'player-item' + (p.ready ? ' ready' : '');
-      let badges = '';
-      if (p.id === myPlayerId) badges += '<span class="badge me">나</span>';
-      if (p.isHost) badges += '<span class="badge host">방장</span>';
-      div.innerHTML = `<span class="name">${escapeHtml(p.name || '?')}</span>${badges}<span class="ready-mark">${p.ready ? '✓' : '·'}</span>`;
-      list.appendChild(div);
-    }
-    refreshPlayerCount();
-  }
-
-  function refreshReadyBtn() {
-    const btn = document.getElementById('readyBtn');
-    if (!btn) return;
-    if (myReady) { btn.textContent = '준비 취소'; btn.classList.add('active'); }
-    else { btn.textContent = '준비'; btn.classList.remove('active'); }
-  }
-
-  function refreshStartBtn() {
-    const btn = document.getElementById('startMatchBtn');
-    if (!btn) return;
-    if (!isHost) { btn.style.display = 'none'; return; }
-    btn.style.display = '';
-    const arr = [...players.values()];
-    const readyCount = arr.filter(p => p.ready).length;
-    const allReady = arr.length >= 2 && arr.length <= MAX_PLAYERS && arr.every(p => p.ready);
-    btn.disabled = !allReady;
-    if (arr.length > MAX_PLAYERS) {
-      btn.textContent = `정원 초과 (${arr.length}/${MAX_PLAYERS})`;
-    } else {
-      btn.textContent = allReady ? '시작' : `시작 대기 (${readyCount}/${arr.length})`;
-    }
-  }
-
-  function refreshPlayerCount() {
-    const el = document.getElementById('playerCount');
-    if (el) el.textContent = `${players.size}/${MAX_PLAYERS}`;
-  }
-
-  function refreshAttackModeUI() {
-    const toggle = document.getElementById('attackModeToggle');
-    if (!toggle) return;
-    toggle.classList.toggle('read-only', !isHost);
-    for (const btn of toggle.querySelectorAll('button')) {
-      btn.classList.toggle('active', btn.dataset.mode === attackMode);
-    }
-  }
-
-  // ===== Chat (lobby) =====
-  function appendChatMessage(name, text, isMe, isSystem) {
-    const container = document.getElementById('chatMessages');
-    if (!container) return;
-    // Remove empty placeholder
-    const empty = container.querySelector('.chat-empty');
-    if (empty) empty.remove();
-
-    const div = document.createElement('div');
-    div.className = 'chat-msg' + (isMe ? ' me' : '') + (isSystem ? ' system' : '');
-
-    // Group consecutive messages from the same author (hide repeated name)
-    const prev = container.lastElementChild;
-    if (prev && !isSystem) {
-      const prevSameSide = isMe ? prev.classList.contains('me') :
-        (!prev.classList.contains('me') && !prev.classList.contains('system'));
-      if (prevSameSide && prev.dataset.author === name) {
-        div.classList.add('same-author');
-      }
-    }
-
-    if (isSystem) {
-      const bubble = document.createElement('div');
-      bubble.className = 'bubble';
-      bubble.textContent = text;
-      div.appendChild(bubble);
-    } else {
-      div.dataset.author = name;
-      if (!isMe) {
-        const authorDiv = document.createElement('div');
-        authorDiv.className = 'author';
-        authorDiv.textContent = name;
-        div.appendChild(authorDiv);
-      }
-      const bubble = document.createElement('div');
-      bubble.className = 'bubble';
-      bubble.textContent = text;
-      div.appendChild(bubble);
-    }
-
-    // Smart auto-scroll: only stick to bottom if user was already near bottom
-    const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 40;
-    container.appendChild(div);
-    while (container.children.length > 50) container.firstChild.remove();
-    if (wasAtBottom || isMe) {
-      container.scrollTop = container.scrollHeight;
-    }
-  }
-  function clearChat() {
-    const container = document.getElementById('chatMessages');
-    if (container) container.innerHTML = '<div class="chat-empty">대화를 시작해보세요</div>';
-  }
-  function sendChat() {
-    const input = document.getElementById('chatInput');
-    if (!input) return;
-    const text = input.value.trim().slice(0, 80);
-    input.value = '';
-    if (!text) return;
-    if (!mqttClient || !mqttClient.connected) return;
-    sendMessage({ type: 'chat', name: myName, text });
-    appendChatMessage(myName, text, true, false);
-  }
-
-  // ===== Emotes (in-game) =====
-  const EMOTES = {
-    fire: '🔥', sweat: '😅', cool: '😎',
-    dead: '💀', gg: 'GG', good: '👍',
-  };
-  const emoteTimers = new Map(); // pid -> timer
-
-  function showEmote(pid, code) {
-    const text = EMOTES[code];
-    if (!text) return;
-    let bubbleContainer;
-    if (pid === myPlayerId) {
-      bubbleContainer = document.getElementById('myEmoteBubble');
-    } else {
-      const info = oppCanvases.get(pid);
-      if (!info || !info.cardEl) return;
-      bubbleContainer = info.cardEl.querySelector('.opp-emote');
-      if (!bubbleContainer) {
-        bubbleContainer = document.createElement('div');
-        bubbleContainer.className = 'opp-emote';
-        info.cardEl.appendChild(bubbleContainer);
-      }
-    }
-    if (!bubbleContainer) return;
-    bubbleContainer.innerHTML = '';
-    const item = document.createElement('div');
-    item.className = 'emote-bubble-item';
-    item.textContent = text;
-    bubbleContainer.appendChild(item);
-    // Replace any pending clear timer
-    const existing = emoteTimers.get(pid);
-    if (existing) clearTimeout(existing);
-    emoteTimers.set(pid, setTimeout(() => {
-      if (item.parentNode) item.remove();
-      emoteTimers.delete(pid);
-    }, 2600));
-  }
-
-  // Bind chat form
-  (() => {
-    const form = document.getElementById('chatForm');
-    const input = document.getElementById('chatInput');
-    if (form) {
-      form.addEventListener('submit', e => {
-        e.preventDefault();
-        sendChat();
-      });
-    }
-    if (input) {
-      // Prevent game keyboard shortcuts from firing while typing
-      input.addEventListener('keydown', e => e.stopPropagation());
-      input.addEventListener('keyup', e => e.stopPropagation());
-    }
-  })();
-
-  // Bind emote buttons
-  document.querySelectorAll('.emote-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const code = btn.dataset.emote;
-      if (!code) return;
-      sendMessage({ type: 'emote', code });
-      showEmote(myPlayerId, code);
-    });
-  });
 
   safeBind('vsBtn', () => {
     if (typeof mqtt === 'undefined') {
       alert('MQTT 라이브러리를 불러올 수 없습니다. 인터넷 연결을 확인하세요.');
       return;
     }
-    if (!requireNickname()) return;
     document.getElementById('startOverlay').classList.remove('show');
     document.getElementById('vsLobby').classList.add('show');
     showLobbyScreen('vsChoice');
@@ -3611,8 +1468,18 @@
 
   safeBind('createRoomBtn', () => {
     roomCode = generateRoomCode();
-    isHost = true;
-    enterRoom();
+    myRole = 'host';
+    document.getElementById('hostCode').textContent = roomCode;
+    document.getElementById('hostStatus').textContent = '브로커 연결 중...';
+    document.getElementById('hostDot').className = 'conn-dot';
+    showLobbyScreen('vsHostWait');
+    connectMqtt().then(() => {
+      document.getElementById('hostStatus').textContent = '상대 대기 중...';
+      startHelloLoop();
+    }).catch(err => {
+      document.getElementById('hostStatus').textContent = '연결 실패: ' + err.message;
+      document.getElementById('hostDot').className = 'conn-dot err';
+    });
   });
 
   safeBind('joinRoomBtn', () => {
@@ -3622,84 +1489,39 @@
 
   safeBind('guestConnectBtn', () => {
     const code = document.getElementById('guestCode').value.toUpperCase().trim();
-    if (code.length !== 4) { alert('4자리 방 코드를 입력하세요.'); return; }
+    if (code.length !== 4) {
+      alert('4자리 방 코드를 입력하세요.');
+      return;
+    }
     roomCode = code;
-    isHost = false;
-    enterRoom();
+    myRole = 'guest';
+    document.getElementById('guestStatus').textContent = '브로커 연결 중...';
+    document.getElementById('guestDot').className = 'conn-dot';
+    showLobbyScreen('vsGuestWait');
+    connectMqtt().then(() => {
+      document.getElementById('guestStatus').textContent = '방 참여 중...';
+      startHelloLoop();
+      setTimeout(() => {
+        if (!opponentReady) {
+          document.getElementById('guestStatus').textContent = '방을 찾을 수 없습니다.';
+          document.getElementById('guestDot').className = 'conn-dot err';
+          disconnectMqtt();
+        }
+      }, 15000);
+    }).catch(err => {
+      document.getElementById('guestStatus').textContent = '연결 실패: ' + err.message;
+      document.getElementById('guestDot').className = 'conn-dot err';
+    });
   });
 
-  safeBind('guestCancelBtn', () => showLobbyScreen('vsChoice'));
-
-  safeBind('leaveRoomBtn', () => {
+  safeBind('hostCancelBtn', () => {
     disconnectMqtt();
     showLobbyScreen('vsChoice');
   });
-
-  safeBind('finalRankCloseBtn', () => {
-    document.getElementById('finalRankOverlay').classList.remove('show');
-    if (gameMode === 'vs') {
-      backToLobby();
-    } else {
-      returnToMenu();
-    }
-  });
-
-  safeBind('copyCodeBtn', async () => {
-    const btn = document.getElementById('copyCodeBtn');
-    if (!roomCode || !btn) return;
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(roomCode);
-      } else {
-        const ta = document.createElement('textarea');
-        ta.value = roomCode;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-      }
-      btn.classList.add('copied');
-      const icon = btn.querySelector('.copy-icon');
-      if (icon) icon.textContent = '✓';
-      setTimeout(() => {
-        btn.classList.remove('copied');
-        if (icon) icon.textContent = '📋';
-      }, 1600);
-    } catch (e) {
-      console.warn('clipboard write failed', e);
-    }
-  });
-
-  safeBind('readyBtn', () => {
-    myReady = !myReady;
-    const me = players.get(myPlayerId);
-    if (me) me.ready = myReady;
-    refreshReadyBtn();
-    refreshPlayerList();
-    refreshStartBtn();
-    sendMessage({ type: 'ready', name: myName, isHost, ready: myReady });
-  });
-
-  safeBind('startMatchBtn', () => {
-    if (!isHost) return;
-    const arr = [...players.values()];
-    if (arr.length < 2 || !arr.every(p => p.ready)) return;
-    sendMessage({ type: 'start_match', attackMode });
-    beginCountdown();
-  });
-
-  // Attack mode toggle (host only)
-  document.getElementById('attackModeToggle').addEventListener('click', e => {
-    if (!isHost) return;
-    const btn = e.target.closest('button[data-mode]');
-    if (!btn) return;
-    const mode = btn.dataset.mode;
-    if (mode === attackMode) return;
-    attackMode = mode;
-    refreshAttackModeUI();
-    sendMessage({ type: 'settings', attackMode });
+  safeBind('guestCancelBtn', () => showLobbyScreen('vsChoice'));
+  safeBind('guestWaitCancelBtn', () => {
+    disconnectMqtt();
+    showLobbyScreen('vsChoice');
   });
 
   // ===== MQTT =====
@@ -3727,6 +1549,8 @@
           if (err) { reject(err); return; }
           resolved = true;
           clearTimeout(timer);
+          if (myRole === 'host') document.getElementById('hostDot').className = 'conn-dot ok';
+          else document.getElementById('guestDot').className = 'conn-dot ok';
           resolve();
         });
       });
@@ -3746,156 +1570,106 @@
   }
 
   function disconnectMqtt() {
-    if (rosterTimer) { clearInterval(rosterTimer); rosterTimer = null; }
+    stopHelloLoop();
     if (mqttClient) {
       try { sendMessage({ type: 'bye' }); } catch (e) {}
       try { mqttClient.end(true); } catch (e) {}
       mqttClient = null;
     }
-    players.clear();
-    myReady = false;
-    inMatch = false;
-    matchResolved = false;
+    opponentReady = false;
+    opponentId = null;
   }
 
   function sendMessage(obj) {
     if (!mqttClient || !mqttClient.connected) return;
-    const payload = JSON.stringify(Object.assign({ from: myPlayerId }, obj));
+    const payload = JSON.stringify(Object.assign({ from: myPlayerId, role: myRole }, obj));
     mqttClient.publish(`${TOPIC_BASE}/${roomCode}`, payload);
   }
 
-  function ensurePlayer(id, msg) {
-    let p = players.get(id);
-    if (!p) {
-      p = { id, name: msg.name || ('P-' + id.slice(1,5).toUpperCase()), isHost: !!msg.isHost, ready: false, alive: true, board: newGrid(), score: 0, lines: 0, level: 1, lastSeen: Date.now() };
-      players.set(id, p);
-    } else {
-      if (msg.name) p.name = msg.name;
-      if ('isHost' in msg) p.isHost = !!msg.isHost;
-      p.lastSeen = Date.now();
-    }
-    return p;
+  function startHelloLoop() {
+    stopHelloLoop();
+    sendMessage({ type: 'hello' });
+    helloInterval = setInterval(() => {
+      if (!opponentReady) sendMessage({ type: 'hello' });
+    }, 1500);
+  }
+  function stopHelloLoop() {
+    if (helloInterval) clearInterval(helloInterval);
+    helloInterval = null;
   }
 
   function handleMqttMessage(msg) {
-    const id = msg.from;
-    if (!id) return;
     switch (msg.type) {
-      case 'hello': {
-        const wasNew = !players.has(id);
-        const p = ensurePlayer(id, msg);
-        // Respond with my current state so the newcomer sees me
-        sendMessage({ type: 'roster', name: myName, isHost, ready: myReady });
-        // Host re-broadcasts settings so newcomers see them
-        if (isHost) sendMessage({ type: 'settings', attackMode });
-        if (wasNew && !inMatch) {
-          appendChatMessage('', `${p.name} 님이 입장했어요`, false, true);
-        }
-        refreshPlayerList();
-        refreshStartBtn();
-        break;
-      }
-      case 'roster': {
-        const p = ensurePlayer(id, msg);
-        if ('ready' in msg) p.ready = !!msg.ready;
-        refreshPlayerList();
-        refreshStartBtn();
-        break;
-      }
-      case 'ready': {
-        const p = ensurePlayer(id, msg);
-        if ('ready' in msg) p.ready = !!msg.ready;
-        refreshPlayerList();
-        refreshStartBtn();
-        break;
-      }
-      case 'settings': {
-        const p = ensurePlayer(id, msg);
-        // Only honor settings from the host
-        if (p.isHost && msg.attackMode && msg.attackMode !== attackMode) {
-          attackMode = msg.attackMode;
-          refreshAttackModeUI();
+      case 'hello':
+        if (msg.role && msg.role !== myRole) {
+          opponentId = msg.from;
+          if (!opponentReady) {
+            opponentReady = true;
+            sendMessage({ type: 'ready' });
+            beginCountdown();
+          } else {
+            sendMessage({ type: 'ready' });
+          }
         }
         break;
-      }
-      case 'start_match': {
-        const p = ensurePlayer(id, msg);
-        if (p.isHost && !countdownActive && !inMatch) {
-          if (msg.attackMode) attackMode = msg.attackMode;
-          refreshAttackModeUI();
+      case 'ready':
+        if (!opponentReady) {
+          opponentReady = true;
+          opponentId = msg.from;
           beginCountdown();
         }
         break;
-      }
-      case 'state': {
-        const p = ensurePlayer(id, msg);
-        p.board = decodeBoard(msg.board);
-        p.score = msg.score || 0;
-        p.lines = msg.lines || 0;
-        p.level = msg.level || 1;
-        drawOpp(id);
+      case 'state':
+        if (msg.from === opponentId) {
+          oppGrid = decodeBoard(msg.board);
+          oppScore = msg.score || 0;
+          oppLines = msg.lines || 0;
+          updateOppStats();
+          drawOppBoard();
+        }
         break;
-      }
-      case 'attack': {
-        if (msg.target === myPlayerId && running && !over) {
-          pendingAttacks.push({ from: id, amount: msg.amount, hole: msg.hole });
-          lastAttackerId = id;
+      case 'attack':
+        if (msg.from === opponentId && running && !over) {
+          pendingAttacks.push({ amount: msg.amount, hole: msg.hole });
           buzz(8);
-          // Visual: pulse target border on attacker card
-          drawOpp(id);
         }
         break;
-      }
-      case 'over': {
-        const p = ensurePlayer(id, msg);
-        if (p.alive) {
-          // Rank = current alive count (last to die = highest rank number, first to die = lowest)
-          // Actually: 6 alive → first death = rank 6 (worst)
-          const aliveCount = [...players.values()].filter(x => x.alive).length;
-          p.finalRank = aliveCount;
-          p.alive = false;
-          p.score = msg.score || p.score;
+      case 'over':
+        if (msg.from === opponentId && running) {
+          oppOver = true;
+          oppScore = msg.score || oppScore;
+          updateOppStats();
+          drawOppBoard();
+          running = false;
+          over = true;
+          showVsResult(true);
         }
-        drawOpp(id);
-        checkVsWinner();
         break;
-      }
-      case 'bye': {
-        if (players.has(id)) {
-          const p = players.get(id);
-          const leftName = p.name;
-          // If they were alive in match, treat as elimination
-          if (inMatch && p.alive) {
-            const aliveCount = [...players.values()].filter(x => x.alive).length;
-            p.finalRank = aliveCount;
-            p.alive = false;
-            drawOpp(id);
-            checkVsWinner();
+      case 'rematch_ready':
+        if (msg.from === opponentId) {
+          oppRematchReady = true;
+          if (myRematchReady) startRematch();
+        }
+        break;
+      case 'bye':
+        if (msg.from === opponentId) {
+          opponentReady = false;
+          myRematchReady = false;
+          oppRematchReady = false;
+          const ov = document.getElementById('gameOverOverlay');
+          if (running && !over) {
+            running = false; over = true;
+            ov.classList.remove('win', 'lose');
+            ov.querySelector('h2').textContent = '상대 나감';
+            document.getElementById('finalScore').textContent = 'SCORE ' + score;
+            resetRestartBtn();
+            ov.classList.add('show');
+          } else if (ov.classList.contains('show')) {
+            ov.querySelector('h2').textContent = '상대 나감';
+            resetRestartBtn();
           }
-          if (!inMatch) {
-            players.delete(id);
-            if (oppCanvases.has(id)) {
-              const info = oppCanvases.get(id);
-              if (info.cardEl && info.cardEl.parentNode) info.cardEl.parentNode.removeChild(info.cardEl);
-              oppCanvases.delete(id);
-            }
-            appendChatMessage('', `${leftName} 님이 나갔어요`, false, true);
-          }
-          refreshPlayerList();
-          refreshStartBtn();
         }
         break;
-      }
-      case 'chat': {
-        const p = ensurePlayer(id, msg);
-        appendChatMessage(p.name, String(msg.text || '').slice(0, 200), false);
-        break;
-      }
-      case 'emote': {
-        ensurePlayer(id, msg);
-        showEmote(id, String(msg.code || ''));
-        break;
-      }
     }
   }
 
@@ -3909,7 +1683,11 @@
 
   function broadcastState() {
     if (!mqttClient || !mqttClient.connected) return;
-    sendMessage({ type: 'state', board: encodeBoard(grid), score, lines, level });
+    sendMessage({
+      type: 'state',
+      board: encodeBoard(grid),
+      score, lines, level,
+    });
   }
 
   function computeAttack(cleared, chainAfter) {
@@ -3919,141 +1697,43 @@
     return atk;
   }
 
-  // Targeted by attackMode ('payback' or 'random'); both fall back to random when no valid target
-  function pickAttackTarget() {
-    const alive = [...players.values()].filter(p => p.id !== myPlayerId && p.alive);
-    if (alive.length === 0) return null;
-    if (attackMode === 'payback' && lastAttackerId) {
-      const t = players.get(lastAttackerId);
-      if (t && t.alive) return t.id;
-    }
-    return alive[Math.floor(Math.random() * alive.length)].id;
-  }
-
   function sendAttack(amount) {
-    const target = pickAttackTarget();
-    if (!target) return;
     const hole = Math.floor(Math.random() * COLS);
-    sendMessage({ type: 'attack', target, amount, hole });
+    sendMessage({ type: 'attack', amount, hole });
   }
 
   function sendOver() {
     sendMessage({ type: 'over', score });
   }
 
-  function showFinalRankings() {
-    const list = document.getElementById('finalRankList');
-    if (!list) return;
-    list.innerHTML = '';
-    const all = [...players.values()].sort((a, b) => {
-      const ra = a.finalRank || 999;
-      const rb = b.finalRank || 999;
-      if (ra !== rb) return ra - rb;
-      return (b.score || 0) - (a.score || 0);
-    });
-    all.forEach((p, i) => {
-      const row = document.createElement('div');
-      const rank = p.finalRank || (i + 1);
-      row.className = 'final-rank-row';
-      if (rank === 1) row.classList.add('gold');
-      else if (rank === 2) row.classList.add('silver');
-      else if (rank === 3) row.classList.add('bronze');
-      if (p.id === myPlayerId) row.classList.add('me');
-      row.style.animationDelay = (i * 0.08) + 's';
-      const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}`;
-      row.innerHTML = `
-        <div class="place">${medal}</div>
-        <div class="who">
-          <div class="who-name">${escapeHtml(p.name || '?')}</div>
-          <div class="who-meta">${(p.score || 0).toLocaleString()}점 · ${p.lines || 0}L</div>
-        </div>
-        <div class="pts">${rank}등</div>
-      `;
-      list.appendChild(row);
-    });
-    document.getElementById('finalRankOverlay').classList.add('show');
-    // Play celebratory sound
-    Audio.play('levelup');
-  }
-
-  function checkVsWinner() {
-    if (!inMatch || matchResolved) return;
-    const alive = [...players.values()].filter(p => p.alive);
-    if (alive.length <= 1) {
-      matchResolved = true;
-      inMatch = false;
-      const survivor = alive[0];
-      if (survivor) {
-        survivor.finalRank = 1;
-        survivor.score = survivor.id === myPlayerId ? score : survivor.score;
-      }
-      // Show personal result for me first
-      if (survivor && survivor.id === myPlayerId) {
-        running = false; over = true;
-        Audio.stopBgm();
-        showVsResult(true, false);
-      } else if (survivor) {
-        // Someone else won; I already saw my own death (or I'm watching)
-        if (over) {
-          const ov = document.getElementById('gameOverOverlay');
-          ov.classList.remove('win', 'lose');
-          ov.classList.add('lose');
-          const me = players.get(myPlayerId);
-          const rank = me?.finalRank || '?';
-          ov.querySelector('h2').textContent = `${rank}등`;
-          document.getElementById('finalScore').textContent = 'SCORE ' + score;
-          document.getElementById('rankAchievement').style.display = 'none';
-          resetRestartBtn();
-          ov.classList.add('show');
-        }
-      }
-      // Show full rankings after a brief delay so personal result lands first
-      setTimeout(() => showFinalRankings(), 1500);
-    }
-  }
-
   function resetRestartBtn() {
     const btn = document.getElementById('restartBtn');
-    btn.textContent = (gameMode === 'vs') ? '로비로' : '다시';
+    btn.textContent = '다시';
     btn.style.opacity = '';
   }
 
-  function rebuildOppList() {
-    if (!oppListEl) return;
-    oppListEl.innerHTML = '';
-    oppCanvases.clear();
-    const opps = [...players.values()].filter(p => p.id !== myPlayerId);
-    const SLOTS = 5;
-    for (let i = 0; i < SLOTS; i++) {
-      const p = opps[i] || null;
-      const card = document.createElement('div');
-      if (p) {
-        card.className = 'opp-card';
-        card.dataset.pid = p.id;
-        const name = document.createElement('div');
-        name.className = 'opp-name';
-        name.textContent = p.name;
-        const body = document.createElement('div');
-        body.className = 'opp-body-x';
-        const canvas = document.createElement('canvas');
-        canvas.className = 'opp-board';
-        body.appendChild(canvas);
-        const stats = document.createElement('div');
-        stats.className = 'opp-stats';
-        stats.innerHTML = '<span>0</span> · LN <span>0</span>';
-        card.appendChild(name);
-        card.appendChild(body);
-        card.appendChild(stats);
-        oppCanvases.set(p.id, { canvas, ctx: canvas.getContext('2d'), cell: 4, cardEl: card });
-      } else {
-        card.className = 'opp-card empty';
-        const empty = document.createElement('div');
-        empty.className = 'opp-empty';
-        empty.textContent = '대기 중';
-        card.appendChild(empty);
-      }
-      oppListEl.appendChild(card);
+  function requestRematch() {
+    if (!opponentReady) {
+      returnToMenu();
+      return;
     }
+    if (myRematchReady) return;
+    myRematchReady = true;
+    sendMessage({ type: 'rematch_ready' });
+    if (oppRematchReady) {
+      startRematch();
+    } else {
+      const btn = document.getElementById('restartBtn');
+      btn.textContent = '상대 대기 중...';
+      btn.style.opacity = '0.5';
+    }
+  }
+
+  function startRematch() {
+    myRematchReady = false;
+    oppRematchReady = false;
+    resetRestartBtn();
+    beginCountdown();
   }
 
   // ===== Countdown =====
@@ -4063,7 +1743,6 @@
     closeAllOverlays();
     gameMode = 'vs';
     document.body.classList.add('vs-mode');
-    repositionOppList();
     setTimeout(fitCanvas, 30);
     const ov = document.getElementById('countdownOverlay');
     const txt = document.getElementById('countdownText');
@@ -4081,234 +1760,13 @@
       void ov.offsetWidth;
       ov.classList.add('show');
       buzz(12);
-      if (steps[i] === 'GO!') Audio.play('countGo'); else Audio.play('countTick');
       i++;
       setTimeout(step, 900);
     }
     step();
   }
 
-  // ===== Solo Ranking — server-first with localStorage fallback =====
-  const Ranking = (() => {
-    const KEY = 'tetris-ranking-v1';
-    const CACHE_KEY = 'tetris-ranking-cache-v1';
-    const MAX = 10;
-    const API_URL = '/api/rankings';
-    const TIMEOUT_MS = 4000;
-
-    let onlineMode = null; // null=unknown, true/false after first probe
-
-    function loadLocal() {
-      try { return JSON.parse(localStorage.getItem(KEY)) || []; }
-      catch { return []; }
-    }
-    function saveLocal(arr) {
-      try { localStorage.setItem(KEY, JSON.stringify(arr.slice(0, MAX))); }
-      catch (e) {}
-    }
-    function loadCache() {
-      try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || []; }
-      catch { return []; }
-    }
-    function saveCache(arr) {
-      try { localStorage.setItem(CACHE_KEY, JSON.stringify(arr.slice(0, MAX))); }
-      catch (e) {}
-    }
-
-    async function fetchWithTimeout(url, opts = {}) {
-      const ctl = new AbortController();
-      const t = setTimeout(() => ctl.abort(), TIMEOUT_MS);
-      try {
-        const res = await fetch(url, { ...opts, signal: ctl.signal });
-        return res;
-      } finally {
-        clearTimeout(t);
-      }
-    }
-
-    async function fetchOnline() {
-      try {
-        const res = await fetchWithTimeout(API_URL);
-        if (!res.ok) throw new Error('http ' + res.status);
-        const data = await res.json();
-        if (!Array.isArray(data.leaderboard)) throw new Error('bad payload');
-        onlineMode = true;
-        saveCache(data.leaderboard);
-        console.info('[ranking] online OK — fetched', data.leaderboard.length, 'entries');
-        return data.leaderboard;
-      } catch (e) {
-        onlineMode = false;
-        console.warn('[ranking] online fetch failed, falling back to local:', e.message || e);
-        return null;
-      }
-    }
-
-    async function submitOnline(entry) {
-      try {
-        const res = await fetchWithTimeout(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(entry),
-        });
-        if (!res.ok) {
-          const errText = await res.text().catch(() => '');
-          throw new Error('http ' + res.status + ' ' + errText.slice(0, 80));
-        }
-        const data = await res.json();
-        onlineMode = true;
-        if (Array.isArray(data.leaderboard)) saveCache(data.leaderboard);
-        console.info('[ranking] online submit OK — rank', data.rank);
-        return data;
-      } catch (e) {
-        onlineMode = false;
-        console.warn('[ranking] online submit failed, saving locally:', e.message || e);
-        return null;
-      }
-    }
-
-    // Public: get current snapshot (sync — uses cache; caller may refresh)
-    function load() {
-      if (onlineMode === true) return loadCache();
-      if (onlineMode === false) return loadLocal();
-      // Unknown — prefer cache if any, else local
-      const c = loadCache();
-      return c.length ? c : loadLocal();
-    }
-    async function refresh() {
-      const result = await fetchOnline();
-      return result || load();
-    }
-
-    // Compute potential rank against the current best snapshot
-    function findRankFor(score) {
-      if (score <= 0) return -1;
-      const arr = load().slice(0, MAX);
-      for (let i = 0; i < arr.length; i++) {
-        if (score > arr[i].score) return i + 1;
-      }
-      if (arr.length < MAX) return arr.length + 1;
-      return -1;
-    }
-
-    // Submit a new entry; returns final rank (online or local)
-    async function add(entry) {
-      // Try online first
-      const remote = await submitOnline(entry);
-      if (remote) {
-        return { rank: remote.rank, mode: 'online' };
-      }
-      // Local fallback
-      const arr = loadLocal();
-      arr.push(entry);
-      arr.sort((a, b) => b.score - a.score);
-      const trimmed = arr.slice(0, MAX);
-      saveLocal(trimmed);
-      return { rank: trimmed.indexOf(entry) + 1, mode: 'local' };
-    }
-
-    function clearLocal() { saveLocal([]); }
-
-    function topScore() {
-      const arr = load();
-      return arr.length ? arr[0].score : 0;
-    }
-
-    function mode() { return onlineMode; }
-
-    return { load, refresh, add, findRankFor, topScore, clearLocal, mode };
-  })();
-
-  function renderRanking(highlightIndex = -1) {
-    const list = document.getElementById('rankingList');
-    list.innerHTML = '';
-    const arr = Ranking.load();
-    if (arr.length === 0) {
-      list.innerHTML = '<div class="rank-empty">아직 기록이 없어요<br>한 판 가시죠 🎮</div>';
-      return;
-    }
-    arr.slice(0, 10).forEach((e, i) => {
-      const row = document.createElement('div');
-      row.className = 'rank-row';
-      if (i === 0) row.classList.add('gold');
-      else if (i === 1) row.classList.add('silver');
-      else if (i === 2) row.classList.add('bronze');
-      if (i === highlightIndex) row.classList.add('highlight');
-      let dateStr = '';
-      if (e.date) {
-        const d = new Date(e.date);
-        dateStr = `${d.getMonth()+1}/${d.getDate()}`;
-      }
-      row.innerHTML = `
-        <div class="rank-num">${i + 1}</div>
-        <div class="rank-main">
-          <div class="rank-score">${e.score.toLocaleString()}</div>
-          <div class="rank-name">${escapeHtml(e.name || '익명')}</div>
-        </div>
-        <div class="rank-meta"><b>LV ${e.level}</b> · ${e.lines}L<br>${dateStr}</div>
-      `;
-      list.appendChild(row);
-    });
-  }
-
-  function updateRankingHeader() {
-    const ov = document.getElementById('rankingOverlay');
-    const status = ov.querySelector('.ranking-status');
-    if (!status) return;
-    const m = Ranking.mode();
-    if (m === true) {
-      status.textContent = '🌐 온라인';
-      status.style.color = 'var(--cool)';
-    } else if (m === false) {
-      status.textContent = '📱 로컬';
-      status.style.color = 'var(--dim)';
-    } else {
-      status.textContent = '...';
-      status.style.color = 'var(--dim)';
-    }
-  }
-
-  async function openRanking(highlightIndex = -1) {
-    document.getElementById('rankingOverlay').classList.add('show');
-    renderRanking(highlightIndex);
-    updateRankingHeader();
-    // Refresh from server in background
-    document.getElementById('rankingList').classList.add('loading');
-    await Ranking.refresh();
-    document.getElementById('rankingList').classList.remove('loading');
-    renderRanking(highlightIndex);
-    updateRankingHeader();
-  }
-
-  safeBind('rankingBtn', () => {
-    document.getElementById('startOverlay').classList.remove('show');
-    openRanking();
-  });
-  safeBind('rankingCloseBtn', () => {
-    document.getElementById('rankingOverlay').classList.remove('show');
-    if (!running && gameMode === 'solo' && !document.getElementById('gameOverOverlay').classList.contains('show')) {
-      document.getElementById('startOverlay').classList.add('show');
-    }
-  });
-  safeBind('rankingClearBtn', () => {
-    if (confirm('로컬에 저장된 기록만 초기화합니다 (서버는 그대로). 진행할까요?')) {
-      Ranking.clearLocal();
-      renderRanking();
-    }
-  });
-  safeBind('viewRankBtn', () => {
-    openRanking();
-  });
-  // Unlock audio on the first user interaction (mobile autoplay policy)
-  function unlockAudioOnce() {
-    Audio.unlock();
-    document.removeEventListener('touchstart', unlockAudioOnce);
-    document.removeEventListener('mousedown', unlockAudioOnce);
-    document.removeEventListener('keydown', unlockAudioOnce);
-  }
-  document.addEventListener('touchstart', unlockAudioOnce, { passive: true });
-  document.addEventListener('mousedown', unlockAudioOnce);
-  document.addEventListener('keydown', unlockAudioOnce);
-
+  // ===== Init =====
   document.addEventListener('gesturestart', e => e.preventDefault());
   let lastTouchEnd = 0;
   document.addEventListener('touchend', e => {
@@ -4317,70 +1775,21 @@
     lastTouchEnd = now;
   }, {passive: false});
 
-  // Reposition opp-list based on viewport.
-  //   Mobile: as a horizontal strip above .mobile-vs-bar (top of screen below topbar).
-  //   Desktop: stays in .play-area; CSS uses position:fixed to float it as a sidebar.
-  const desktopMQ = window.matchMedia('(min-width: 768px) and (min-height: 600px)');
-  function repositionOppList() {
-    const oppList = document.getElementById('oppList');
-    const rightPanel = document.getElementById('rightPanel');
-    const playArea = document.querySelector('.play-area');
-    const app = document.querySelector('.app');
-    const mobileBar = document.getElementById('mobileVsBar');
-    if (!oppList || !rightPanel || !playArea || !app) return;
-    if (desktopMQ.matches) {
-      if (oppList.parentElement !== playArea) playArea.appendChild(oppList);
-    } else {
-      // Mobile — opp strip ABOVE the mobile-vs-bar HUD
-      const anchor = mobileBar || playArea;
-      if (oppList.parentElement !== app || oppList.nextElementSibling !== anchor) {
-        app.insertBefore(oppList, anchor);
-      }
-    }
-  }
-  desktopMQ.addEventListener('change', () => {
-    repositionOppList();
-    setTimeout(fitCanvas, 50);
-  });
-
   window.addEventListener('beforeunload', () => disconnectMqtt());
-  window.addEventListener('resize', () => { repositionOppList(); fitCanvas(); });
-  window.addEventListener('orientationchange', () => setTimeout(() => { repositionOppList(); fitCanvas(); }, 100));
+  window.addEventListener('resize', fitCanvas);
+  window.addEventListener('orientationchange', () => setTimeout(fitCanvas, 100));
 
   grid = newGrid();
-  requestAnimationFrame(() => { repositionOppList(); fitCanvas(); draw(); });
-
-  // Nickname input — saved to localStorage; updates myName live
-  (() => {
-    const NICK_KEY = 'tetris-nickname-v1';
-    const input = document.getElementById('nicknameInput');
-    if (!input) return;
-    input.value = (myName === AUTO_NAME) ? '' : myName;
-    input.placeholder = AUTO_NAME;
-    let composing = false;
-    function sanitize(raw) {
-      // Allow alpha-numeric, full Hangul syllables, Hangul jamo (compatibility + conjoining), space, hyphen
-      return String(raw || '').replace(/[^\w가-힣\u3131-\u318E\u1100-\u11FF\- ]/g, '').slice(0, 16);
-    }
-    function commit() {
-      const cleaned = sanitize(input.value).trim();
-      myName = cleaned || AUTO_NAME;
-      try { localStorage.setItem(NICK_KEY, cleaned); } catch (e) {}
-      if (cleaned !== input.value && !composing) input.value = cleaned;
-    }
-    input.addEventListener('compositionstart', () => { composing = true; });
-    input.addEventListener('compositionend', () => { composing = false; commit(); });
-    input.addEventListener('input', () => { if (!composing) commit(); });
-    input.addEventListener('blur', commit);
-    input.addEventListener('keydown', e => e.stopPropagation());
-    input.addEventListener('keyup', e => e.stopPropagation());
-  })();
-
-  // Probe ranking server in background so the online/offline status is known
-  // and update the BEST score display.
-  updateBest();
-  Ranking.refresh().then(() => updateBest());
+  requestAnimationFrame(() => { fitCanvas(); draw(); });
 })();
+</script>
+<script>
+  // PWA: register service worker (only works over https/localhost)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
 </script>
 </body>
 </html>
