@@ -175,6 +175,40 @@
   }
   .opp-stats span { color: var(--ink); }
 
+  /* Multi-opponent container (up to 3 boards stacked) */
+  #oppContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+  }
+  #oppContainer .opp-box {
+    aspect-ratio: auto;
+    flex: 1 1 0;
+    padding: 3px 2px 4px;
+  }
+  #oppContainer .opp-label {
+    font-size: 8px;
+    margin-bottom: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: 100%;
+  }
+  #oppContainer .opp-stats { font-size: 8px; margin-top: 1px; }
+
+  /* Lobby player list */
+  .player-list {
+    font-size: 13px;
+    color: var(--ink);
+    letter-spacing: 1px;
+    text-align: center;
+    min-height: 16px;
+    line-height: 1.4;
+  }
+  #hostStartBtn:disabled { opacity: 0.4; }
+
   .board-wrap {
     position: relative;
     flex: 1 1 auto;
@@ -472,8 +506,10 @@
         <div id="vsHostWait" style="display:none;flex-direction:column;align-items:center;gap:12px">
           <p>방 코드</p>
           <div class="room-code" id="hostCode">----</div>
-          <p class="hint">친구에게 알려주세요</p>
+          <p class="hint">친구에게 알려주세요 (최대 4명)</p>
+          <div class="player-list" id="hostPlayerList"></div>
           <p class="status-line"><span class="conn-dot" id="hostDot"></span><span id="hostStatus">연결 중...</span></p>
+          <button id="hostStartBtn" disabled>시작 (1명)</button>
           <button class="ghost" id="hostCancelBtn">취소</button>
         </div>
         <div id="vsGuestInput" style="display:none;flex-direction:column;align-items:center;gap:12px">
@@ -484,6 +520,8 @@
         </div>
         <div id="vsGuestWait" style="display:none;flex-direction:column;align-items:center;gap:12px">
           <p class="status-line"><span class="conn-dot" id="guestDot"></span><span id="guestStatus">연결 중...</span></p>
+          <div class="player-list" id="guestPlayerList"></div>
+          <p class="hint">방장이 시작하길 기다리는 중...</p>
           <button class="ghost" id="guestWaitCancelBtn">취소</button>
         </div>
       </div>
@@ -517,14 +555,7 @@
         <span class="mini-label">NEXT</span>
         <canvas class="mini" id="vsNext"></canvas>
       </div>
-      <div class="vs-only opp-box">
-        <div class="opp-label">상대</div>
-        <canvas class="opp-board" id="oppBoard"></canvas>
-        <div class="opp-stats">
-          <div><span id="oppScore">0</span></div>
-          <div>LN <span id="oppLines">0</span></div>
-        </div>
-      </div>
+      <div class="vs-only" id="oppContainer"></div>
     </div>
   </div>
 
@@ -552,8 +583,6 @@
   const ctx = board.getContext('2d');
   const holdView = document.getElementById('holdView');
   const hctx = holdView.getContext('2d');
-  const oppBoard = document.getElementById('oppBoard');
-  const oppCtx = oppBoard.getContext('2d');
 
   const soloPreviews = [
     { canvas: document.getElementById('next1'), ctx: null, cell: 9 },
@@ -565,7 +594,7 @@
   vsPreview.ctx = vsPreview.canvas.getContext('2d');
   const holdEl = { canvas: holdView, ctx: hctx, cell: 9 };
 
-  let BLOCK = 24, OPP_BLOCK = 8, dpr = 1;
+  let BLOCK = 24, dpr = 1;
 
   function sizeMini(el) {
     const box = el.canvas.parentElement;
@@ -582,19 +611,22 @@
     el.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  function sizeOppBoard() {
-    const box = oppBoard.parentElement;
-    if (!box || box.offsetWidth === 0) return;
-    const availW = box.clientWidth - 8;
-    const availH = box.clientHeight - 30;
-    let cell = Math.floor(Math.min(availW / COLS, availH / ROWS));
-    OPP_BLOCK = Math.max(3, cell);
-    const w = OPP_BLOCK * COLS, hh = OPP_BLOCK * ROWS;
-    oppBoard.style.width = w + 'px';
-    oppBoard.style.height = hh + 'px';
-    oppBoard.width = w * dpr;
-    oppBoard.height = hh * dpr;
-    oppCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  function sizeOppBoards() {
+    for (const id in opp) {
+      const o = opp[id];
+      const box = o.boxEl;
+      if (!box || box.offsetWidth === 0) continue;
+      const availW = box.clientWidth - 6;
+      const availH = box.clientHeight - 18;
+      let cell = Math.floor(Math.min(availW / COLS, availH / ROWS));
+      o.block = Math.max(2, cell);
+      const w = o.block * COLS, hh = o.block * ROWS;
+      o.canvas.style.width = w + 'px';
+      o.canvas.style.height = hh + 'px';
+      o.canvas.width = w * dpr;
+      o.canvas.height = hh * dpr;
+      o.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
   }
 
   function fitCanvas() {
@@ -611,9 +643,9 @@
     soloPreviews.forEach(sizeMini);
     sizeMini(vsPreview);
     sizeMini(holdEl);
-    if (gameMode === 'vs') sizeOppBoard();
+    if (gameMode === 'vs') sizeOppBoards();
     draw();
-    drawOppBoard();
+    drawOppBoards();
   }
 
   const PIECES = {
@@ -678,20 +710,21 @@
   let popups = [];
   let shake = 0, boardFlash = 0;
 
-  // VS state
+  // VS state (supports 2-4 players)
   let mqttClient = null;
   let myPlayerId = 'p' + Math.random().toString(36).slice(2, 8);
   let roomCode = null;
-  let myRole = null;
-  let opponentId = null;
-  let opponentReady = false;
+  let myRole = null;            // 'host' | 'guest'
+  let isHost = false;
+  let myName = '';
+  let lobbyPlayers = [];        // [{id, name}] authoritative roster (host) / mirror (guest)
+  let opp = {};                 // id -> opponent record {id,name,grid,score,lines,over,canvas,ctx,block,boxEl,scoreEl}
+  let aliveIds = new Set();     // player ids still alive (includes me)
+  let myDead = false;
+  let gameStarted = false;
   let pendingAttacks = [];
-  let oppGrid = newGrid();
-  let oppScore = 0, oppLines = 0, oppOver = false;
   let lastBroadcast = 0;
   let helloInterval = null;
-  let myRematchReady = false;
-  let oppRematchReady = false;
   let countdownActive = false;
 
   function buzz(ms = 8) { if (navigator.vibrate) navigator.vibrate(ms); }
@@ -897,7 +930,7 @@
           outgoing = 0;
         }
       }
-      if (outgoing > 0) sendAttack(outgoing);
+      if (outgoing > 0) sendAttackToRandom(outgoing);
     }
 
     clearing = null;
@@ -1106,36 +1139,67 @@
   }
   function drawHold() { drawMini(holdEl, hold, !canHold); }
 
-  function drawOppBoard() {
-    if (gameMode !== 'vs') return;
-    const w = COLS * OPP_BLOCK, hh = ROWS * OPP_BLOCK;
-    oppCtx.fillStyle = '#07001f';
-    oppCtx.fillRect(0, 0, w, hh);
-    oppCtx.strokeStyle = 'rgba(120,80,220,0.1)';
-    oppCtx.lineWidth = 0.5;
-    for (let x = 1; x < COLS; x++) {
-      oppCtx.beginPath();
-      oppCtx.moveTo(x * OPP_BLOCK + 0.5, 0);
-      oppCtx.lineTo(x * OPP_BLOCK + 0.5, hh);
-      oppCtx.stroke();
+  // Build one opponent mini-board per other player into #oppContainer
+  function buildOppBoards(list) {
+    const container = document.getElementById('oppContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    opp = {};
+    for (const p of list) {
+      if (p.id === myPlayerId) continue;
+      const box = document.createElement('div');
+      box.className = 'opp-box';
+      const label = document.createElement('div');
+      label.className = 'opp-label';
+      label.textContent = p.name || '상대';
+      const canvas = document.createElement('canvas');
+      canvas.className = 'opp-board';
+      const stats = document.createElement('div');
+      stats.className = 'opp-stats';
+      const scoreSpan = document.createElement('span');
+      scoreSpan.textContent = '0';
+      stats.appendChild(scoreSpan);
+      box.appendChild(label);
+      box.appendChild(canvas);
+      box.appendChild(stats);
+      container.appendChild(box);
+      opp[p.id] = {
+        id: p.id, name: p.name, grid: newGrid(),
+        score: 0, lines: 0, over: false,
+        canvas, ctx: canvas.getContext('2d'), block: 4,
+        boxEl: box, scoreEl: scoreSpan,
+      };
     }
+  }
+
+  function drawOneOpp(o) {
+    const c2 = o.ctx, b = o.block;
+    const w = COLS * b, hh = ROWS * b;
+    c2.fillStyle = '#07001f';
+    c2.fillRect(0, 0, w, hh);
     for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        if (oppGrid[r] && oppGrid[r][c]) {
-          oppCtx.fillStyle = oppGrid[r][c];
-          oppCtx.fillRect(c * OPP_BLOCK, r * OPP_BLOCK, OPP_BLOCK - 0.5, OPP_BLOCK - 0.5);
+      for (let cc = 0; cc < COLS; cc++) {
+        if (o.grid[r] && o.grid[r][cc]) {
+          c2.fillStyle = o.grid[r][cc];
+          c2.fillRect(cc * b, r * b, b - 0.5, b - 0.5);
         }
       }
     }
-    if (oppOver) {
-      oppCtx.fillStyle = 'rgba(255,46,136,0.4)';
-      oppCtx.fillRect(0, 0, w, hh);
-      oppCtx.fillStyle = '#fff';
-      oppCtx.font = `bold ${Math.floor(OPP_BLOCK * 2)}px "Major Mono Display", monospace`;
-      oppCtx.textAlign = 'center';
-      oppCtx.textBaseline = 'middle';
-      oppCtx.fillText('K.O.', w/2, hh/2);
+    if (o.over) {
+      c2.fillStyle = 'rgba(255,46,136,0.4)';
+      c2.fillRect(0, 0, w, hh);
+      c2.fillStyle = '#fff';
+      c2.font = `bold ${Math.floor(b * 2)}px "Major Mono Display", monospace`;
+      c2.textAlign = 'center';
+      c2.textBaseline = 'middle';
+      c2.fillText('K.O.', w / 2, hh / 2);
     }
+    if (o.scoreEl) o.scoreEl.textContent = o.score;
+  }
+
+  function drawOppBoards() {
+    if (gameMode !== 'vs') return;
+    for (const id in opp) drawOneOpp(opp[id]);
   }
 
   function updateStats() {
@@ -1144,31 +1208,48 @@
     document.getElementById('level').textContent = level;
   }
 
-  function updateOppStats() {
-    document.getElementById('oppScore').textContent = oppScore;
-    document.getElementById('oppLines').textContent = oppLines;
-  }
-
   function gameOver() {
     running = false;
     over = true;
     buzz(80);
     if (gameMode === 'vs') {
-      sendOver();
-      showVsResult(false);
+      if (!myDead) {
+        myDead = true;
+        aliveIds.delete(myPlayerId);
+        sendOver();
+      }
+      // survivors still alive will rank above me
+      const rank = aliveIds.size + 1;
+      showVsResult(rank);
     } else {
       document.getElementById('finalScore').textContent = 'SCORE ' + score;
       document.getElementById('gameOverOverlay').classList.add('show');
     }
   }
 
-  function showVsResult(won) {
+  // Called whenever a player dies; if I'm the last one standing, I win.
+  function checkVsEnd() {
+    if (!gameStarted || over) return;
+    if (!myDead && aliveIds.size <= 1 && aliveIds.has(myPlayerId)) {
+      running = false;
+      over = true;
+      showVsResult(1);
+    }
+  }
+
+  function showVsResult(rank) {
     const ov = document.getElementById('gameOverOverlay');
     ov.classList.remove('win', 'lose');
-    ov.classList.add(won ? 'win' : 'lose');
-    ov.querySelector('h2').textContent = won ? 'YOU WIN!' : 'LOSE';
-    document.getElementById('finalScore').textContent = 'SCORE ' + score + '  ·  상대 ' + oppScore;
-    resetRestartBtn();
+    const total = Object.keys(opp).length + 1;
+    if (rank === 1) {
+      ov.classList.add('win');
+      ov.querySelector('h2').textContent = 'YOU WIN!';
+    } else {
+      ov.classList.add('lose');
+      ov.querySelector('h2').textContent = total > 2 ? (rank + '등 / ' + total + '명') : 'LOSE';
+    }
+    document.getElementById('finalScore').textContent = 'SCORE ' + score;
+    updateRestartBtn();
     ov.classList.add('show');
   }
 
@@ -1195,7 +1276,7 @@
           if (dropCounter >= dropInterval) { current.y++; dropCounter = 0; }
         }
       }
-      if (gameMode === 'vs' && opponentReady && !over) {
+      if (gameMode === 'vs' && gameStarted && !over) {
         lastBroadcast += delta;
         if (lastBroadcast >= STATE_INTERVAL) {
           broadcastState();
@@ -1218,13 +1299,15 @@
     lockTimer = 0; lockResets = 0;
     clearing = null; popups = []; shake = 0; boardFlash = 0;
     pendingAttacks = [];
-    oppGrid = newGrid();
-    oppScore = 0; oppLines = 0; oppOver = false;
+    for (const id in opp) {
+      opp[id].grid = newGrid();
+      opp[id].score = 0; opp[id].lines = 0; opp[id].over = false;
+    }
     spawn();
     updateStats();
-    updateOppStats();
     drawHold();
-    drawOppBoard();
+    sizeOppBoards();
+    drawOppBoards();
     running = true; paused = false; over = false;
     closeAllOverlays();
     showGestureHint();
@@ -1254,9 +1337,13 @@
     if (gameMode === 'vs') disconnectMqtt();
     gameMode = 'solo';
     document.body.classList.remove('vs-mode');
-    myRematchReady = false;
-    oppRematchReady = false;
+    gameStarted = false;
+    myDead = false;
+    aliveIds = new Set();
     countdownActive = false;
+    const oc = document.getElementById('oppContainer');
+    if (oc) oc.innerHTML = '';
+    opp = {};
     resetRestartBtn();
     closeAllOverlays();
     document.getElementById('startOverlay').classList.add('show');
@@ -1430,7 +1517,8 @@
   });
   safeBind('restartBtn', () => {
     if (gameMode === 'vs') {
-      requestRematch();
+      if (isHost) hostRematch();
+      // guests wait for the host to restart
     } else {
       startGame();
     }
@@ -1469,10 +1557,15 @@
   safeBind('createRoomBtn', () => {
     roomCode = generateRoomCode();
     myRole = 'host';
+    isHost = true;
+    myName = 'P1';
+    lobbyPlayers = [{ id: myPlayerId, name: myName }];
+    gameStarted = false;
     document.getElementById('hostCode').textContent = roomCode;
     document.getElementById('hostStatus').textContent = '브로커 연결 중...';
     document.getElementById('hostDot').className = 'conn-dot';
     showLobbyScreen('vsHostWait');
+    updateHostLobby();
     connectMqtt().then(() => {
       document.getElementById('hostStatus').textContent = '상대 대기 중...';
       startHelloLoop();
@@ -1481,6 +1574,8 @@
       document.getElementById('hostDot').className = 'conn-dot err';
     });
   });
+
+  safeBind('hostStartBtn', () => hostStartGame());
 
   safeBind('joinRoomBtn', () => {
     showLobbyScreen('vsGuestInput');
@@ -1495,15 +1590,19 @@
     }
     roomCode = code;
     myRole = 'guest';
+    isHost = false;
+    lobbyPlayers = [];
+    gameStarted = false;
     document.getElementById('guestStatus').textContent = '브로커 연결 중...';
     document.getElementById('guestDot').className = 'conn-dot';
+    document.getElementById('guestPlayerList').textContent = '';
     showLobbyScreen('vsGuestWait');
     connectMqtt().then(() => {
       document.getElementById('guestStatus').textContent = '방 참여 중...';
       startHelloLoop();
       setTimeout(() => {
-        if (!opponentReady) {
-          document.getElementById('guestStatus').textContent = '방을 찾을 수 없습니다.';
+        if (!gameStarted && !lobbyPlayers.find(p => p.id === myPlayerId)) {
+          document.getElementById('guestStatus').textContent = '방을 찾을 수 없거나 가득 찼습니다.';
           document.getElementById('guestDot').className = 'conn-dot err';
           disconnectMqtt();
         }
@@ -1576,8 +1675,8 @@
       try { mqttClient.end(true); } catch (e) {}
       mqttClient = null;
     }
-    opponentReady = false;
-    opponentId = null;
+    gameStarted = false;
+    lobbyPlayers = [];
   }
 
   function sendMessage(obj) {
@@ -1588,9 +1687,11 @@
 
   function startHelloLoop() {
     stopHelloLoop();
-    sendMessage({ type: 'hello' });
+    sendMessage({ type: 'hello', name: myName });
     helloInterval = setInterval(() => {
-      if (!opponentReady) sendMessage({ type: 'hello' });
+      if (gameStarted) return;
+      sendMessage({ type: 'hello', name: myName });
+      if (isHost) sendMessage({ type: 'roster', players: lobbyPlayers });
     }, 1500);
   }
   function stopHelloLoop() {
@@ -1601,73 +1702,68 @@
   function handleMqttMessage(msg) {
     switch (msg.type) {
       case 'hello':
-        if (msg.role && msg.role !== myRole) {
-          opponentId = msg.from;
-          if (!opponentReady) {
-            opponentReady = true;
-            sendMessage({ type: 'ready' });
-            beginCountdown();
-          } else {
-            sendMessage({ type: 'ready' });
+        // Host registers any new player into the roster (cap 4) and re-broadcasts it.
+        if (isHost && !gameStarted) {
+          if (!lobbyPlayers.find(p => p.id === msg.from) && lobbyPlayers.length < 4) {
+            lobbyPlayers.push({ id: msg.from, name: 'P' + (lobbyPlayers.length + 1) });
+            updateHostLobby();
           }
+          sendMessage({ type: 'roster', players: lobbyPlayers });
         }
         break;
-      case 'ready':
-        if (!opponentReady) {
-          opponentReady = true;
-          opponentId = msg.from;
-          beginCountdown();
+      case 'roster':
+        // Guests mirror the host's authoritative roster.
+        if (!isHost) {
+          lobbyPlayers = msg.players || [];
+          const me = lobbyPlayers.find(p => p.id === myPlayerId);
+          if (me) myName = me.name;
+          updateGuestLobby();
         }
+        break;
+      case 'start':
+        if (countdownActive) break;
+        if (running && !over) break;
+        lobbyPlayers = msg.players || lobbyPlayers;
+        gameStarted = false;
+        beginMatch();
         break;
       case 'state':
-        if (msg.from === opponentId) {
-          oppGrid = decodeBoard(msg.board);
-          oppScore = msg.score || 0;
-          oppLines = msg.lines || 0;
-          updateOppStats();
-          drawOppBoard();
+        if (opp[msg.from]) {
+          const o = opp[msg.from];
+          o.grid = decodeBoard(msg.board);
+          o.score = msg.score || 0;
+          o.lines = msg.lines || 0;
+          drawOneOpp(o);
         }
         break;
       case 'attack':
-        if (msg.from === opponentId && running && !over) {
+        if (msg.target === myPlayerId && running && !over) {
           pendingAttacks.push({ amount: msg.amount, hole: msg.hole });
           buzz(8);
         }
         break;
       case 'over':
-        if (msg.from === opponentId && running) {
-          oppOver = true;
-          oppScore = msg.score || oppScore;
-          updateOppStats();
-          drawOppBoard();
-          running = false;
-          over = true;
-          showVsResult(true);
-        }
-        break;
-      case 'rematch_ready':
-        if (msg.from === opponentId) {
-          oppRematchReady = true;
-          if (myRematchReady) startRematch();
+        if (opp[msg.from] && !opp[msg.from].over) {
+          opp[msg.from].over = true;
+          opp[msg.from].score = msg.score || opp[msg.from].score;
+          drawOneOpp(opp[msg.from]);
+          aliveIds.delete(msg.from);
+          checkVsEnd();
         }
         break;
       case 'bye':
-        if (msg.from === opponentId) {
-          opponentReady = false;
-          myRematchReady = false;
-          oppRematchReady = false;
-          const ov = document.getElementById('gameOverOverlay');
-          if (running && !over) {
-            running = false; over = true;
-            ov.classList.remove('win', 'lose');
-            ov.querySelector('h2').textContent = '상대 나감';
-            document.getElementById('finalScore').textContent = 'SCORE ' + score;
-            resetRestartBtn();
-            ov.classList.add('show');
-          } else if (ov.classList.contains('show')) {
-            ov.querySelector('h2').textContent = '상대 나감';
-            resetRestartBtn();
+        // A player left the room entirely.
+        lobbyPlayers = lobbyPlayers.filter(p => p.id !== msg.from);
+        if (gameStarted) {
+          if (opp[msg.from] && !opp[msg.from].over) {
+            opp[msg.from].over = true;
+            drawOneOpp(opp[msg.from]);
           }
+          aliveIds.delete(msg.from);
+          checkVsEnd();
+        } else {
+          if (isHost) { updateHostLobby(); sendMessage({ type: 'roster', players: lobbyPlayers }); }
+          else updateGuestLobby();
         }
         break;
     }
@@ -1697,9 +1793,13 @@
     return atk;
   }
 
-  function sendAttack(amount) {
+  // Send garbage to one random still-alive opponent.
+  function sendAttackToRandom(amount) {
+    const targets = [...aliveIds].filter(id => id !== myPlayerId && opp[id]);
+    if (targets.length === 0) return;
+    const target = targets[Math.floor(Math.random() * targets.length)];
     const hole = Math.floor(Math.random() * COLS);
-    sendMessage({ type: 'attack', amount, hole });
+    sendMessage({ type: 'attack', target, amount, hole });
   }
 
   function sendOver() {
@@ -1712,28 +1812,61 @@
     btn.style.opacity = '';
   }
 
-  function requestRematch() {
-    if (!opponentReady) {
-      returnToMenu();
-      return;
-    }
-    if (myRematchReady) return;
-    myRematchReady = true;
-    sendMessage({ type: 'rematch_ready' });
-    if (oppRematchReady) {
-      startRematch();
-    } else {
-      const btn = document.getElementById('restartBtn');
-      btn.textContent = '상대 대기 중...';
+  function updateRestartBtn() {
+    const btn = document.getElementById('restartBtn');
+    if (gameMode === 'vs' && !isHost) {
+      btn.textContent = '방장 대기';
       btn.style.opacity = '0.5';
+    } else {
+      btn.textContent = '다시';
+      btn.style.opacity = '';
     }
   }
 
-  function startRematch() {
-    myRematchReady = false;
-    oppRematchReady = false;
-    resetRestartBtn();
+  // Host kicks off the match for everyone in the room.
+  function hostStartGame() {
+    if (!isHost || gameStarted || lobbyPlayers.length < 2) return;
+    sendMessage({ type: 'start', players: lobbyPlayers });
+    beginMatch();
+  }
+
+  function hostRematch() {
+    if (!isHost) return;
+    if (lobbyPlayers.length < 2) { returnToMenu(); return; }
+    gameStarted = false;
+    sendMessage({ type: 'start', players: lobbyPlayers });
+    beginMatch();
+  }
+
+  function beginMatch() {
+    if (gameStarted) return;
+    gameStarted = true;
+    stopHelloLoop();
+    aliveIds = new Set(lobbyPlayers.map(p => p.id));
+    myDead = false;
+    buildOppBoards(lobbyPlayers);
     beginCountdown();
+  }
+
+  function updateHostLobby() {
+    const list = document.getElementById('hostPlayerList');
+    if (list) list.textContent = lobbyPlayers.map(p => p.name + (p.id === myPlayerId ? '(나)' : '')).join('   ');
+    const btn = document.getElementById('hostStartBtn');
+    if (btn) {
+      btn.textContent = '시작 (' + lobbyPlayers.length + '명)';
+      btn.disabled = lobbyPlayers.length < 2;
+    }
+    const st = document.getElementById('hostStatus');
+    if (st) st.textContent = lobbyPlayers.length < 2 ? '상대 대기 중...' : '시작할 수 있어요';
+  }
+
+  function updateGuestLobby() {
+    const list = document.getElementById('guestPlayerList');
+    if (list) list.textContent = lobbyPlayers.map(p => p.name + (p.id === myPlayerId ? '(나)' : '')).join('   ');
+    if (lobbyPlayers.find(p => p.id === myPlayerId)) {
+      document.getElementById('guestStatus').textContent = '입장 완료! 방장 대기 중 (' + lobbyPlayers.length + '명)';
+      document.getElementById('guestDot').className = 'conn-dot ok';
+    }
   }
 
   // ===== Countdown =====
