@@ -294,9 +294,10 @@
   }
   .btn-group { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
   .room-code {
-    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
+    font-family: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+    font-weight: 700;
     font-size: 44px;
-    letter-spacing: 8px;
+    letter-spacing: 10px;
     color: var(--cool);
     text-shadow: 0 0 12px var(--cool), 0 0 28px var(--cool);
     padding: 8px 20px;
@@ -308,9 +309,10 @@
     background: rgba(0,0,0,0.3);
     border: 2px solid var(--line);
     color: var(--ink);
-    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
+    font-family: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+    font-weight: 700;
     font-size: 32px;
-    letter-spacing: 8px;
+    letter-spacing: 10px;
     text-align: center;
     padding: 8px 12px;
     width: 200px;
@@ -970,8 +972,7 @@
       for (let i = 0; i < atk.amount; i++) {
         grid.shift();
         const row = Array(COLS).fill(GARBAGE_COLOR);
-        // 줄마다 구멍 위치를 무작위로 (공격 패턴 랜덤화)
-        row[Math.floor(Math.random() * COLS)] = 0;
+        row[atk.hole] = 0;
         grid.push(row);
         totalApplied++;
         if (totalApplied >= ROWS) break;
