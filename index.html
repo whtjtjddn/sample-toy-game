@@ -12,7 +12,9 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" href="./icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
-<link href="https://fonts.googleapis.com/css2?family=VT323&family=Major+Mono+Display&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="./mqtt.min.js"></script>
 <style>
   :root {
@@ -34,7 +36,7 @@
     height: 100%;
     background: radial-gradient(ellipse at top, var(--bg-1) 0%, var(--bg-0) 70%);
     color: var(--ink);
-    font-family: 'VT323', monospace;
+    font-family: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
@@ -50,6 +52,7 @@
   }
 
   .app {
+    height: 100vh;
     height: 100dvh;
     display: flex;
     flex-direction: column;
@@ -88,7 +91,7 @@
     background: transparent;
     border: 1px solid var(--line);
     color: var(--dim);
-    font-family: 'VT323', monospace;
+    font-family: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
     font-size: 18px;
     border-radius: 6px;
     cursor: pointer;
@@ -239,16 +242,19 @@
     align-items: center;
     justify-content: center;
     background: rgba(5, 0, 24, 0.88);
+    -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);
     z-index: 5;
     border-radius: 4px;
     gap: 14px;
     padding: 18px;
     text-align: center;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .overlay.show { display: flex; }
   .overlay h2 {
-    font-family: 'Major Mono Display', monospace;
+    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
     font-size: 26px;
     letter-spacing: 3px;
     color: var(--hot);
@@ -266,7 +272,7 @@
     background: transparent;
     border: 2px solid var(--cool);
     color: var(--cool);
-    font-family: 'VT323', monospace;
+    font-family: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
     font-size: 22px;
     letter-spacing: 2px;
     padding: 10px 32px;
@@ -288,7 +294,7 @@
   }
   .btn-group { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
   .room-code {
-    font-family: 'Major Mono Display', monospace;
+    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
     font-size: 44px;
     letter-spacing: 8px;
     color: var(--cool);
@@ -302,7 +308,7 @@
     background: rgba(0,0,0,0.3);
     border: 2px solid var(--line);
     color: var(--ink);
-    font-family: 'Major Mono Display', monospace;
+    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
     font-size: 32px;
     letter-spacing: 8px;
     text-align: center;
@@ -334,12 +340,13 @@
     z-index: 6;
     pointer-events: none;
     background: rgba(5,0,24,0.4);
+    -webkit-backdrop-filter: blur(2px);
     backdrop-filter: blur(2px);
     border-radius: 4px;
   }
   .countdown-overlay.show { display: flex; }
   .countdown-overlay span {
-    font-family: 'Major Mono Display', monospace;
+    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
     font-size: 96px;
     color: var(--warn);
     text-shadow: 0 0 24px var(--warn), 0 0 48px var(--warn);
@@ -357,7 +364,7 @@
     top: 30%;
     left: 50%;
     transform: translateX(-50%) scale(0);
-    font-family: 'Major Mono Display', monospace;
+    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
     font-size: clamp(26px, 7vw, 42px);
     color: var(--cool);
     text-shadow: 0 0 16px var(--cool), 0 0 32px var(--cool);
@@ -386,7 +393,7 @@
     background: rgba(120, 80, 220, 0.12);
     border: 1px solid var(--line);
     color: var(--ink);
-    font-family: 'VT323', monospace;
+    font-family: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
     padding: 0;
     border-radius: 8px;
     text-shadow: 0 0 4px rgba(240,234,255,0.4);
@@ -963,7 +970,8 @@
       for (let i = 0; i < atk.amount; i++) {
         grid.shift();
         const row = Array(COLS).fill(GARBAGE_COLOR);
-        row[atk.hole] = 0;
+        // 줄마다 구멍 위치를 무작위로 (공격 패턴 랜덤화)
+        row[Math.floor(Math.random() * COLS)] = 0;
         grid.push(row);
         totalApplied++;
         if (totalApplied >= ROWS) break;
@@ -1093,7 +1101,7 @@
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.fillStyle = p.color;
-      ctx.font = `${Math.floor(BLOCK * 0.85 * scale)}px "VT323", monospace`;
+      ctx.font = `700 ${Math.floor(BLOCK * 0.85 * scale)}px "Orbitron", "Noto Sans KR", sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.shadowColor = p.color;
@@ -1189,7 +1197,7 @@
       c2.fillStyle = 'rgba(255,46,136,0.4)';
       c2.fillRect(0, 0, w, hh);
       c2.fillStyle = '#fff';
-      c2.font = `bold ${Math.floor(b * 2)}px "Major Mono Display", monospace`;
+      c2.font = `bold ${Math.floor(b * 2)}px "Orbitron", sans-serif`;
       c2.textAlign = 'center';
       c2.textBaseline = 'middle';
       c2.fillText('K.O.', w / 2, hh / 2);
