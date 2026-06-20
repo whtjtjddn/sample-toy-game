@@ -63,7 +63,7 @@
   /* TOP BAR */
   .topbar {
     display: grid;
-    grid-template-columns: 1.6fr 1fr 0.8fr 40px;
+    grid-template-columns: 1.5fr 0.9fr 0.7fr 36px 36px;
     gap: 5px;
     flex-shrink: 0;
   }
@@ -98,6 +98,7 @@
     letter-spacing: 2px;
   }
   .icon-btn:active { background: rgba(120,80,220,0.2); }
+  .icon-btn.off { opacity: 0.4; text-decoration: line-through; }
 
   /* PLAY AREA */
   .play-area {
@@ -473,6 +474,7 @@
       <div class="stat-label">LV</div>
       <div class="stat-value" id="level">1</div>
     </div>
+    <button class="icon-btn" id="musicBtn" aria-label="음악 켜기/끄기">♪</button>
     <button class="icon-btn" id="pauseBtn" aria-label="일시정지">II</button>
   </div>
 
@@ -738,6 +740,115 @@
 
   function buzz(ms = 8) { if (navigator.vibrate) navigator.vibrate(ms); }
 
+  // ===== BGM (Web Audio 합성 칩튠, 외부 음원 없음) =====
+  let audioCtx = null;
+  let masterGain = null;
+  let musicOn = (localStorage.getItem('tetris_music') !== 'off');
+  let bgmTimer = null, bgmNext = 0, bgmStep = 0;
+
+  const NOTE_F = {
+    'A2': 110.00, 'E2': 82.41,
+    'A4': 440.00, 'B4': 493.88, 'C5': 523.25, 'D5': 587.33,
+    'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.00,
+  };
+  // Korobeiniki (전통 곡, 퍼블릭 도메인) A파트 — [음, 박자]
+  const MELODY = [
+    ['E5',1],['B4',.5],['C5',.5],['D5',1],['C5',.5],['B4',.5],
+    ['A4',1],['A4',.5],['C5',.5],['E5',1],['D5',.5],['C5',.5],
+    ['B4',1.5],['C5',.5],['D5',1],['E5',1],
+    ['C5',1],['A4',1],['A4',1],[0,1],
+    ['D5',1],['F5',.5],['A5',1],['G5',.5],['F5',.5],
+    ['E5',1.5],['C5',.5],['E5',1],['D5',.5],['C5',.5],
+    ['B4',1],['B4',.5],['C5',.5],['D5',1],['E5',1],
+    ['C5',1],['A4',1],['A4',1],[0,1],
+  ];
+  // 8분음표 격자로 펼치기
+  const MELODY_SLOTS = (() => {
+    const s = [];
+    for (const [note, beats] of MELODY) {
+      const n = Math.max(1, Math.round(beats / 0.5));
+      s.push(note);
+      for (let k = 1; k < n; k++) s.push(null);
+    }
+    return s;
+  })();
+  const TEMPO = 144;
+  const BEAT = 60 / TEMPO;
+  const EIGHTH = BEAT / 2;
+
+  function ensureAudio() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.5;
+      masterGain.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playTone(freq, start, dur, type, gain) {
+    if (!audioCtx || !freq) return;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.linearRampToValueAtTime(gain, start + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    osc.connect(g); g.connect(masterGain);
+    osc.start(start);
+    osc.stop(start + dur + 0.03);
+  }
+
+  function bgmScheduler() {
+    if (!audioCtx) return;
+    const ahead = audioCtx.currentTime + 0.12;
+    while (bgmNext < ahead) {
+      const idx = bgmStep % MELODY_SLOTS.length;
+      const note = MELODY_SLOTS[idx];
+      if (note) playTone(NOTE_F[note], bgmNext, EIGHTH * 0.95, 'square', 0.15);
+      if (idx % 2 === 0) {                      // 매 박자 베이스
+        const beatIdx = idx / 2;
+        const root = (beatIdx % 4 < 2) ? 'A2' : 'E2';
+        playTone(NOTE_F[root], bgmNext, BEAT * 0.9, 'triangle', 0.22);
+      }
+      bgmNext += EIGHTH;
+      bgmStep++;
+    }
+  }
+
+  function startBgm() {
+    if (!musicOn) return;
+    if (!ensureAudio()) return;
+    if (bgmTimer) return;
+    bgmStep = 0;
+    bgmNext = audioCtx.currentTime + 0.1;
+    bgmTimer = setInterval(bgmScheduler, 25);
+  }
+
+  function stopBgm() {
+    if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; }
+  }
+
+  function updateMusicBtn() {
+    const btn = document.getElementById('musicBtn');
+    if (btn) btn.classList.toggle('off', !musicOn);
+  }
+
+  function toggleMusic() {
+    musicOn = !musicOn;
+    localStorage.setItem('tetris_music', musicOn ? 'on' : 'off');
+    updateMusicBtn();
+    if (musicOn) {
+      if (running && !paused && !over) startBgm();
+    } else {
+      stopBgm();
+    }
+  }
+
   function newGrid() {
     return Array.from({length: ROWS}, () => Array(COLS).fill(0));
   }
@@ -829,7 +940,7 @@
     while (!collide(current, 0, 1)) { current.y++; dist++; }
     score += dist * 2;
     updateStats();
-    shake = Math.min(8, 3 + dist * 0.3);
+    shake = Math.min(11, 4 + dist * 0.45);
     buzz(18);
     lockPiece();
   }
@@ -924,7 +1035,9 @@
       addPopup('COMBO x' + chain, '#ff2e88', px, py - BLOCK * 1.5, false);
       buzz(12);
     }
-    if (c.cleared === 4) buzz(45); else buzz(15);
+    // 줄 없앨 때 진동: 줄 수가 많을수록 강한 패턴 (안드로이드 등 Vibration API 지원 기기)
+    const clearVib = { 1: 25, 2: [0, 25, 40, 25], 3: [0, 30, 40, 30, 40, 30], 4: [0, 45, 55, 90] };
+    buzz(clearVib[c.cleared] || 25);
     updateStats();
 
     if (gameMode === 'vs') {
@@ -1221,6 +1334,7 @@
     running = false;
     over = true;
     buzz(80);
+    stopBgm();
     if (gameMode === 'vs') {
       if (!myDead) {
         myDead = true;
@@ -1247,6 +1361,7 @@
   }
 
   function showVsResult(rank) {
+    stopBgm();
     const ov = document.getElementById('gameOverOverlay');
     ov.classList.remove('win', 'lose');
     const total = Object.keys(opp).length + 1;
@@ -1320,6 +1435,7 @@
     running = true; paused = false; over = false;
     closeAllOverlays();
     showGestureHint();
+    startBgm();
     if (rafId) cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(loop);
   }
@@ -1338,10 +1454,12 @@
     if (!running || over) return;
     paused = !paused;
     document.getElementById('pauseOverlay').classList.toggle('show', paused);
+    if (paused) stopBgm(); else startBgm();
   }
 
   function returnToMenu() {
     running = false; over = false; paused = false;
+    stopBgm();
     if (rafId) cancelAnimationFrame(rafId);
     if (gameMode === 'vs') disconnectMqtt();
     gameMode = 'solo';
@@ -1520,6 +1638,7 @@
   });
 
   safeBind('startBtn', () => {
+    ensureAudio();
     gameMode = 'solo';
     document.body.classList.remove('vs-mode');
     setTimeout(() => { fitCanvas(); startGame(); }, 30);
@@ -1535,6 +1654,8 @@
   safeBind('backToMenuBtn', () => returnToMenu());
   safeBind('resumeBtn', togglePause);
   safeBind('pauseBtn', togglePause);
+  safeBind('musicBtn', () => { ensureAudio(); toggleMusic(); });
+  updateMusicBtn();
 
   // ===== VS Lobby =====
   function generateRoomCode() {
@@ -1553,6 +1674,7 @@
       alert('MQTT 라이브러리를 불러올 수 없습니다. 인터넷 연결을 확인하세요.');
       return;
     }
+    ensureAudio();
     document.getElementById('startOverlay').classList.remove('show');
     document.getElementById('vsLobby').classList.add('show');
     showLobbyScreen('vsChoice');
