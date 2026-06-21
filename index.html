@@ -213,6 +213,61 @@
   }
   #hostStartBtn:disabled { opacity: 0.4; }
 
+  /* Lobby chat */
+  .chat-box {
+    width: 100%;
+    max-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  .chat-log {
+    height: clamp(70px, 16vh, 120px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: rgba(0, 0, 0, 0.32);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: left;
+    color: var(--ink);
+    word-break: break-word;
+  }
+  .chat-log .who { color: var(--hot); font-weight: 700; }
+  .chat-log .who.me { color: var(--cool); }
+  .chat-log .sys { color: var(--dim); font-size: 12px; }
+  .chat-input-row { display: flex; gap: 6px; }
+  .chat-input {
+    flex: 1;
+    min-width: 0;
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid var(--line);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 15px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    outline: none;
+  }
+  .chat-input:focus { border-color: var(--cool); box-shadow: 0 0 10px rgba(0,240,255,0.25); }
+  .chat-send {
+    flex-shrink: 0;
+    background: transparent;
+    border: 2px solid var(--cool);
+    color: var(--cool);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 0 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-shadow: 0 0 6px var(--cool);
+  }
+  .chat-send:active { transform: scale(0.96); background: rgba(0,240,255,0.1); }
+
   .board-wrap {
     position: relative;
     flex: 1 1 auto;
@@ -534,6 +589,13 @@
           <div class="player-list" id="guestPlayerList"></div>
           <p class="hint">방장이 시작하길 기다리는 중...</p>
           <button class="ghost" id="guestWaitCancelBtn">취소</button>
+        </div>
+        <div class="chat-box" id="lobbyChat" style="display:none">
+          <div class="chat-log" id="chatLog"></div>
+          <div class="chat-input-row">
+            <input class="chat-input" id="chatText" type="text" maxlength="60" placeholder="메시지 입력..." autocomplete="off">
+            <button class="chat-send" id="chatSendBtn">전송</button>
+          </div>
         </div>
       </div>
 
@@ -1667,6 +1729,46 @@
     ['vsChoice', 'vsHostWait', 'vsGuestInput', 'vsGuestWait'].forEach(id => {
       document.getElementById(id).style.display = (id === screen) ? 'flex' : 'none';
     });
+    // 채팅은 방에 연결된 대기 화면(호스트/게스트)에서만 표시
+    const chat = document.getElementById('lobbyChat');
+    if (chat) chat.style.display = (screen === 'vsHostWait' || screen === 'vsGuestWait') ? 'flex' : 'none';
+  }
+
+  // ===== Lobby chat =====
+  function addChatLine(who, text, kind) {
+    const log = document.getElementById('chatLog');
+    if (!log) return;
+    const line = document.createElement('div');
+    if (kind === 'sys') {
+      line.className = 'sys';
+      line.textContent = text;
+    } else {
+      const w = document.createElement('span');
+      w.className = 'who' + (kind === 'me' ? ' me' : '');
+      w.textContent = who + ': ';
+      line.appendChild(w);
+      line.appendChild(document.createTextNode(text));  // textContent 사용으로 XSS 방지
+    }
+    log.appendChild(line);
+    while (log.children.length > 60) log.removeChild(log.firstChild);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function clearChat() {
+    const log = document.getElementById('chatLog');
+    if (log) log.innerHTML = '';
+  }
+
+  function sendChat() {
+    const inp = document.getElementById('chatText');
+    if (!inp) return;
+    const text = inp.value.trim();
+    if (!text) return;
+    if (!mqttClient || !mqttClient.connected) return;
+    addChatLine(myName || '나', text, 'me');
+    sendMessage({ type: 'chat', name: myName || '나', text });
+    inp.value = '';
+    inp.focus();
   }
 
   safeBind('vsBtn', () => {
@@ -1695,6 +1797,8 @@
     document.getElementById('hostCode').textContent = roomCode;
     document.getElementById('hostStatus').textContent = '브로커 연결 중...';
     document.getElementById('hostDot').className = 'conn-dot';
+    clearChat();
+    addChatLine('', '방을 만들었어요. 참가자를 기다리는 중...', 'sys');
     showLobbyScreen('vsHostWait');
     updateHostLobby();
     connectMqtt().then(() => {
@@ -1727,6 +1831,8 @@
     document.getElementById('guestStatus').textContent = '브로커 연결 중...';
     document.getElementById('guestDot').className = 'conn-dot';
     document.getElementById('guestPlayerList').textContent = '';
+    clearChat();
+    addChatLine('', '방에 들어가는 중...', 'sys');
     showLobbyScreen('vsGuestWait');
     connectMqtt().then(() => {
       document.getElementById('guestStatus').textContent = '방 참여 중...';
@@ -1753,6 +1859,16 @@
     disconnectMqtt();
     showLobbyScreen('vsChoice');
   });
+
+  // Lobby chat send (button + Enter key)
+  safeBind('chatSendBtn', () => sendChat());
+  const chatTextEl = document.getElementById('chatText');
+  if (chatTextEl) {
+    chatTextEl.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Enter') { e.preventDefault(); sendChat(); }
+    });
+  }
 
   // ===== MQTT =====
   function connectMqtt() {
@@ -1850,6 +1966,9 @@
           if (me) myName = me.name;
           updateGuestLobby();
         }
+        break;
+      case 'chat':
+        if (!gameStarted) addChatLine(msg.name || '상대', msg.text || '', 'other');
         break;
       case 'start':
         if (countdownActive) break;
