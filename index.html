@@ -558,6 +558,60 @@
     padding: 2px 7px;
   }
 
+  /* ===== Settings ===== */
+  .setting-row {
+    width: 100%;
+    max-width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .setting-top { display: flex; justify-content: space-between; align-items: baseline; }
+  .setting-top label {
+    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--cool);
+    letter-spacing: 1px;
+  }
+  #sensValue { font-size: 14px; font-weight: 700; color: var(--warn); }
+  .setting-scale {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 1px;
+  }
+  #sensSlider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(0,240,255,0.18);
+    border: 1px solid var(--line);
+    outline: none;
+  }
+  #sensSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--cool);
+    box-shadow: 0 0 10px var(--cool);
+    cursor: pointer;
+  }
+  #sensSlider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background: var(--cool);
+    box-shadow: 0 0 10px var(--cool);
+    cursor: pointer;
+  }
+
   .board-wrap {
     position: relative;
     flex: 1 1 auto;
@@ -857,6 +911,7 @@
           <button id="vsBtn" class="alt">VS 모드</button>
           <button id="rankingBtn" class="ghost">🏆 랭킹</button>
           <button id="helpBtn" class="ghost">❓ 도움말</button>
+          <button id="settingsBtn" class="ghost">⚙️ 설정</button>
         </div>
       </div>
 
@@ -983,6 +1038,28 @@
           </div>
         </div>
         <button id="helpCloseBtn">닫기</button>
+      </div>
+
+      <div class="overlay" id="settingsOverlay">
+        <h2>⚙️ 설정</h2>
+        <div class="setting-row">
+          <div class="setting-top">
+            <label for="sensSlider">슬라이드 감도</label>
+            <span id="sensValue">보통</span>
+          </div>
+          <input type="range" id="sensSlider" min="1" max="5" step="1" value="3">
+          <div class="setting-scale"><span>둔감</span><span>예민</span></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-top">
+            <label for="fxSlider">애니메이션 효과</label>
+            <span id="fxValue">보통</span>
+          </div>
+          <input type="range" id="fxSlider" min="0" max="3" step="1" value="2">
+          <div class="setting-scale"><span>끄기</span><span>강하게</span></div>
+        </div>
+        <p class="hint">슬라이드 감도: 높을수록 작은 드래그로 이동·드롭 (회전 탭엔 영향 없음)<br>애니메이션: 하드드랍 흔들림·플래시 강도</p>
+        <button id="settingsCloseBtn">닫기</button>
       </div>
     </div>
 
@@ -1640,8 +1717,9 @@
   function draw() {
     ctx.save();
     if (shake > 0 || slam !== 0) {
-      const dx = (Math.random() - 0.5) * shake;
-      const dy = (Math.random() - 0.5) * shake * 0.7 + slam;  // 슬램은 보드를 아래로 밀어냄
+      const fx = fxScale();
+      const dx = (Math.random() - 0.5) * shake * fx;
+      const dy = ((Math.random() - 0.5) * shake * 0.7 + slam) * fx;  // 슬램은 보드를 아래로 밀어냄
       ctx.translate(dx, dy);
     }
     ctx.fillStyle = '#07001f';
@@ -1676,7 +1754,7 @@
       }
     }
     if (boardFlash > 0.01) {
-      ctx.fillStyle = `rgba(255,225,74,${boardFlash * 0.18})`;
+      ctx.fillStyle = `rgba(255,225,74,${boardFlash * 0.18 * fxScale()})`;
       ctx.fillRect(0, 0, COLS * BLOCK, ROWS * BLOCK);
     }
     drawGarbageMeter();
@@ -2007,6 +2085,21 @@
     hardDropped: false,
   };
 
+  // 슬라이드 감도: 이동/소프트드롭의 한 칸당 드래그 거리에 곱하는 계수 (낮을수록 예민)
+  const SENS_FACTOR = { 1: 1.5, 2: 1.22, 3: 1.0, 4: 0.82, 5: 0.66 };
+  let sensLevel = (() => {
+    const v = parseInt(localStorage.getItem('tetris-sens'), 10);
+    return (v >= 1 && v <= 5) ? v : 3;
+  })();
+
+  // 애니메이션 효과 강도(흔들림·슬램·플래시 배율). 0이면 끔.
+  const FX_SCALE = { 0: 0, 1: 0.5, 2: 1.0, 3: 1.6 };
+  let fxLevel = (() => {
+    const v = parseInt(localStorage.getItem('tetris-fx'), 10);
+    return (v >= 0 && v <= 3) ? v : 2;
+  })();
+  const fxScale = () => FX_SCALE[fxLevel];
+
   function gestureStart(x, y) {
     if (!running || paused || over || clearing) { touch.active = false; return; }
     touch.active = true;
@@ -2049,7 +2142,7 @@
 
     // Horizontal continuous movement
     touch.accumX += dx;
-    const stepX = Math.max(BLOCK * 0.7, 18);
+    const stepX = Math.max(BLOCK * 0.7, 18) * SENS_FACTOR[sensLevel];
     while (Math.abs(touch.accumX) >= stepX) {
       const dir = touch.accumX > 0 ? 1 : -1;
       move(dir);
@@ -2060,7 +2153,7 @@
     // Vertical downward soft drop (continuous)
     if (dy > 0) {
       touch.accumY += dy;
-      const stepY = Math.max(BLOCK * 0.6, 18);
+      const stepY = Math.max(BLOCK * 0.6, 18) * SENS_FACTOR[sensLevel];
       while (touch.accumY >= stepY) {
         softDrop();
         touch.accumY -= stepY;
@@ -2227,6 +2320,45 @@
     document.getElementById('helpOverlay').classList.remove('show');
     document.getElementById('startOverlay').classList.add('show');
   });
+
+  // ===== Settings (슬라이드 감도 + 애니메이션 효과) =====
+  const SENS_LABEL = { 1: '매우 둔감', 2: '둔감', 3: '보통', 4: '예민', 5: '매우 예민' };
+  const FX_LABEL = { 0: '끄기', 1: '약하게', 2: '보통', 3: '강하게' };
+  const sensSlider = document.getElementById('sensSlider');
+  const fxSlider = document.getElementById('fxSlider');
+  function refreshSettingsUI() {
+    if (sensSlider) sensSlider.value = sensLevel;
+    if (fxSlider) fxSlider.value = fxLevel;
+    const sv = document.getElementById('sensValue');
+    const fv = document.getElementById('fxValue');
+    if (sv) sv.textContent = SENS_LABEL[sensLevel];
+    if (fv) fv.textContent = FX_LABEL[fxLevel];
+  }
+  if (sensSlider) {
+    sensSlider.addEventListener('input', () => {
+      sensLevel = parseInt(sensSlider.value, 10) || 3;
+      try { localStorage.setItem('tetris-sens', sensLevel); } catch (e) {}
+      refreshSettingsUI();
+    });
+  }
+  if (fxSlider) {
+    fxSlider.addEventListener('input', () => {
+      fxLevel = parseInt(fxSlider.value, 10);
+      if (isNaN(fxLevel)) fxLevel = 2;
+      try { localStorage.setItem('tetris-fx', fxLevel); } catch (e) {}
+      refreshSettingsUI();
+    });
+  }
+  safeBind('settingsBtn', () => {
+    refreshSettingsUI();
+    document.getElementById('startOverlay').classList.remove('show');
+    document.getElementById('settingsOverlay').classList.add('show');
+  });
+  safeBind('settingsCloseBtn', () => {
+    document.getElementById('settingsOverlay').classList.remove('show');
+    document.getElementById('startOverlay').classList.add('show');
+  });
+  refreshSettingsUI();
 
   // 공격 모드 토글 (호스트만 변경 가능, 게스트는 표시만)
   document.querySelectorAll('#attackModeWrap button').forEach(b => {
