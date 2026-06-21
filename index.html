@@ -500,6 +500,60 @@
     50% { transform: scale(1.08); box-shadow: 0 0 24px rgba(255,225,74,0.7); }
   }
 
+  /* ===== Help ===== */
+  .help-content {
+    width: 100%;
+    max-width: 320px;
+    max-height: 56vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 2px 2px 4px;
+  }
+  .help-section h3 {
+    font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--cool);
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+    text-shadow: 0 0 6px rgba(0,240,255,0.4);
+  }
+  .help-section ul { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+  .help-section li {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ink);
+    padding-left: 12px;
+    position: relative;
+  }
+  .help-section li::before {
+    content: '·';
+    position: absolute;
+    left: 2px;
+    color: var(--dim);
+  }
+  .help-section li b { color: var(--cool); font-weight: 700; }
+  .help-section li ul { margin-top: 4px; padding-left: 8px; }
+  .help-table {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 5px;
+  }
+  .help-table span {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--warn);
+    background: rgba(255,225,74,0.08);
+    border: 1px solid rgba(255,225,74,0.35);
+    border-radius: 5px;
+    padding: 2px 7px;
+  }
+
   .board-wrap {
     position: relative;
     flex: 1 1 auto;
@@ -797,6 +851,7 @@
           <button id="startBtn">솔로 플레이</button>
           <button id="vsBtn" class="alt">VS 모드</button>
           <button id="rankingBtn" class="ghost">🏆 랭킹</button>
+          <button id="helpBtn" class="ghost">❓ 도움말</button>
         </div>
       </div>
 
@@ -877,6 +932,52 @@
           <button id="rankingChangeNickBtn" class="ghost">닉네임 변경</button>
           <button id="rankingClearBtn" class="ghost">로컬 기록 초기화</button>
         </div>
+      </div>
+
+      <div class="overlay" id="helpOverlay">
+        <h2 style="color:var(--cool);text-shadow:0 0 12px var(--cool)">❓ 도움말</h2>
+        <div class="help-content">
+          <div class="help-section">
+            <h3>조작</h3>
+            <ul>
+              <li><b>탭</b> — 회전</li>
+              <li><b>좌·우 드래그</b> — 이동</li>
+              <li><b>↓ 천천히 드래그</b> — 소프트 드롭</li>
+              <li><b>↓ 빠르게 플릭</b> — 하드 드롭</li>
+              <li><b>아래 버튼 / C</b> — HOLD (한 번 보관·교체)</li>
+            </ul>
+          </div>
+          <div class="help-section">
+            <h3>점수 · 레벨</h3>
+            <ul>
+              <li>줄을 지우면 점수, <b>한 번에 여러 줄</b>일수록 보너스 (4줄 = 테트리스)</li>
+              <li>연속으로 줄을 지우면 <b>콤보</b> 보너스</li>
+              <li><b>10줄</b>마다 레벨업 → 낙하 속도 빨라짐</li>
+            </ul>
+          </div>
+          <div class="help-section">
+            <h3>⚔️ VS 공격 규칙</h3>
+            <ul>
+              <li>한 번에 많이 지울수록 상대에게 <b>쓰레기 줄</b>을 더 보냄
+                <div class="help-table">
+                  <span>2줄→1</span><span>3줄→2</span><span>4줄→4</span><span>콤보 +α</span>
+                </div>
+              </li>
+              <li>내 공격은 먼저 <b>내가 받을 쓰레기를 상쇄</b>하고, 남는 만큼만 상대에게 나감</li>
+              <li>받은 쓰레기는 즉시 안 깔리고 <b>대기</b>(보드 왼쪽 핑크 막대) →
+                <b>줄을 못 지우고 블록을 놓는 순간</b> 한꺼번에 올라옴.
+                그 전에 줄을 지우면 <b>막을 수 있어요!</b></li>
+              <li>공격 대상 (방장이 로비에서 선택):
+                <ul>
+                  <li><b>무작위</b> — 살아있는 상대 중 랜덤 1명</li>
+                  <li><b>보복</b> — 마지막으로 날 친 상대에게 되갚음</li>
+                </ul>
+              </li>
+              <li>먼저 죽으면 탈락, <b>마지막까지 살아남으면 승리</b> (최대 6인)</li>
+            </ul>
+          </div>
+        </div>
+        <button id="helpCloseBtn">닫기</button>
       </div>
     </div>
 
@@ -2063,6 +2164,16 @@
     openNicknameOverlay();
   });
   safeBind('rankingClearBtn', () => { Ranking.clearLocal(); renderRanking(); });
+
+  // ===== Help =====
+  safeBind('helpBtn', () => {
+    document.getElementById('startOverlay').classList.remove('show');
+    document.getElementById('helpOverlay').classList.add('show');
+  });
+  safeBind('helpCloseBtn', () => {
+    document.getElementById('helpOverlay').classList.remove('show');
+    document.getElementById('startOverlay').classList.add('show');
+  });
 
   // 공격 모드 토글 (호스트만 변경 가능, 게스트는 표시만)
   document.querySelectorAll('#attackModeWrap button').forEach(b => {
