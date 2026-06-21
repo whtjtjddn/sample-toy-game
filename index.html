@@ -268,6 +268,44 @@
   }
   .chat-send:active { transform: scale(0.96); background: rgba(0,240,255,0.1); }
 
+  /* Network status banner */
+  .net-banner {
+    position: fixed;
+    top: calc(var(--safe-top) + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: rgba(18, 0, 40, 0.96);
+    border: 1px solid var(--warn);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 13px;
+    color: var(--ink);
+    z-index: 200;
+    box-shadow: 0 4px 22px rgba(0,0,0,0.5);
+    white-space: nowrap;
+    max-width: 92vw;
+  }
+  .net-banner.show { display: flex; }
+  .net-banner.ok { border-color: var(--cool); }
+  .net-banner.retry { border-color: var(--warn); }
+  .net-banner.err { border-color: var(--hot); }
+  #netRetryBtn {
+    background: transparent;
+    border: 1px solid var(--cool);
+    color: var(--cool);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  #netRetryBtn:active { background: rgba(0,240,255,0.12); }
+
   .board-wrap {
     position: relative;
     flex: 1 1 auto;
@@ -516,6 +554,11 @@
 <body>
 <div class="app">
 
+  <div class="net-banner" id="netBanner">
+    <span id="netBannerText">연결 끊김 · 재연결 중…</span>
+    <button id="netRetryBtn">재시도</button>
+  </div>
+
   <div class="topbar">
     <div class="stat score">
       <div class="stat-label">SCORE</div>
@@ -671,9 +714,13 @@
 
   function sizeMini(el) {
     const box = el.canvas.parentElement;
-    const w = box.clientWidth, h = box.clientHeight;
-    if (w === 0 || h === 0) return;
-    const size = Math.min(w, h) - 8;
+    const w = box.clientWidth;
+    if (w === 0) return;
+    const h = box.clientHeight;
+    // iOS 등에서 aspect-ratio 높이가 아직 0이거나 비정상일 때 너비 기준 정사각형으로 폴백
+    // (이게 없으면 캔버스가 기본 300x150으로 남아 박스를 뚫고 깨짐)
+    const basis = (h > 4 && h < w * 2.2) ? Math.min(w, h) : w;
+    const size = basis - 8;
     const cell = Math.max(6, Math.floor(size / 4));
     el.cell = cell;
     const finalSize = cell * 4;
@@ -791,6 +838,7 @@
   let isHost = false;
   let myName = '';
   let lobbyPlayers = [];        // [{id, name}] authoritative roster (host) / mirror (guest)
+  let lobbySeen = {};           // id -> 마지막 hello 수신 시각 (호스트가 끊긴 대기자 정리용)
   let opp = {};                 // id -> opponent record {id,name,grid,score,lines,over,canvas,ctx,block,boxEl,scoreEl}
   let aliveIds = new Set();     // player ids still alive (includes me)
   let myDead = false;
@@ -1793,6 +1841,7 @@
     isHost = true;
     myName = 'P1';
     lobbyPlayers = [{ id: myPlayerId, name: myName }];
+    lobbySeen = {};
     gameStarted = false;
     document.getElementById('hostCode').textContent = roomCode;
     document.getElementById('hostStatus').textContent = '브로커 연결 중...';
@@ -1827,6 +1876,7 @@
     myRole = 'guest';
     isHost = false;
     lobbyPlayers = [];
+    lobbySeen = {};
     gameStarted = false;
     document.getElementById('guestStatus').textContent = '브로커 연결 중...';
     document.getElementById('guestDot').className = 'conn-dot';
@@ -1860,6 +1910,18 @@
     showLobbyScreen('vsChoice');
   });
 
+  // 연결 재시도 버튼
+  safeBind('netRetryBtn', () => manualReconnect());
+
+  // 탭 복귀 시 끊겨 있으면 즉시 재연결
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (roomCode && mqttClient && !mqttClient.connected) {
+      setNetState('retry');
+      try { mqttClient.reconnect(); } catch (e) {}
+    }
+  });
+
   // Lobby chat send (button + Enter key)
   safeBind('chatSendBtn', () => sendChat());
   const chatTextEl = document.getElementById('chatText');
@@ -1877,9 +1939,10 @@
       try {
         mqttClient = mqtt.connect(MQTT_URL, {
           clientId: 'tetris_' + myPlayerId + '_' + Date.now(),
-          keepalive: 30,
-          reconnectPeriod: 0,
+          keepalive: 20,
+          reconnectPeriod: 2000,   // 자동 재연결 (탭 전환·네트워크 끊김 복구)
           connectTimeout: 8000,
+          clean: true,
         });
       } catch (e) { reject(e); return; }
 
@@ -1888,18 +1951,23 @@
         if (!resolved) { resolved = true; reject(new Error('타임아웃')); }
       }, 10000);
 
+      // 'connect'는 최초 연결과 모든 재연결마다 발생 → 매번 재구독 + 프레즌스 재전송
       mqttClient.on('connect', () => {
-        if (resolved) return;
         const topic = `${TOPIC_BASE}/${roomCode}`;
         mqttClient.subscribe(topic, err => {
-          if (err) { reject(err); return; }
-          resolved = true;
-          clearTimeout(timer);
-          if (myRole === 'host') document.getElementById('hostDot').className = 'conn-dot ok';
-          else document.getElementById('guestDot').className = 'conn-dot ok';
-          resolve();
+          if (err) {
+            if (!resolved) { resolved = true; clearTimeout(timer); reject(err); }
+            return;
+          }
+          if (!resolved) { resolved = true; clearTimeout(timer); resolve(); }
+          setNetState('ok');
+          onMqttReconnected();
         });
       });
+
+      mqttClient.on('reconnect', () => setNetState('retry'));
+      mqttClient.on('close', () => setNetState('retry'));
+      mqttClient.on('offline', () => setNetState('retry'));
 
       mqttClient.on('message', (topic, payload) => {
         try {
@@ -1915,15 +1983,69 @@
     });
   }
 
+  // 재연결 직후: 구독은 위에서 갱신됨. 여기선 내 존재/상태를 다시 알림.
+  function onMqttReconnected() {
+    if (!roomCode || !mqttClient || !mqttClient.connected) return;
+    sendMessage({ type: 'hello', name: myName });
+    if (gameStarted) {
+      if (gameMode === 'vs' && !over) broadcastState();
+    } else if (isHost) {
+      sendMessage({ type: 'roster', players: lobbyPlayers });
+    }
+  }
+
+  // 연결 상태 배너/표시
+  let netOkTimer = null;
+  function setNetState(state) {
+    const banner = document.getElementById('netBanner');
+    const txt = document.getElementById('netBannerText');
+    if (!banner || !txt) return;
+    if (!roomCode) { banner.classList.remove('show'); return; }
+    if (!gameStarted) {
+      const dot = document.getElementById(isHost ? 'hostDot' : 'guestDot');
+      if (dot) dot.className = 'conn-dot ' + (state === 'ok' ? 'ok' : state === 'err' ? 'err' : '');
+    }
+    if (netOkTimer) { clearTimeout(netOkTimer); netOkTimer = null; }
+    banner.classList.remove('ok', 'retry', 'err');
+    if (state === 'ok') {
+      txt.textContent = '연결됨';
+      banner.classList.add('ok', 'show');
+      netOkTimer = setTimeout(() => banner.classList.remove('show'), 1400);
+    } else if (state === 'err') {
+      txt.textContent = '연결 실패';
+      banner.classList.add('err', 'show');
+    } else {
+      txt.textContent = '연결 끊김 · 재연결 중…';
+      banner.classList.add('retry', 'show');
+    }
+  }
+
+  // 수동 재시도/재입장
+  function manualReconnect() {
+    if (!roomCode) return;
+    setNetState('retry');
+    if (mqttClient) {
+      try { mqttClient.reconnect(); return; } catch (e) {}
+      try { mqttClient.end(true); } catch (e) {}
+      mqttClient = null;
+    }
+    connectMqtt().then(() => { startHelloLoop(); }).catch(() => setNetState('err'));
+  }
+
   function disconnectMqtt() {
     stopHelloLoop();
     if (mqttClient) {
       try { sendMessage({ type: 'bye' }); } catch (e) {}
+      try { mqttClient.removeAllListeners(); } catch (e) {}  // 의도적 종료 → 재연결 배너 안 뜨게
       try { mqttClient.end(true); } catch (e) {}
       mqttClient = null;
     }
     gameStarted = false;
     lobbyPlayers = [];
+    lobbySeen = {};
+    roomCode = null;
+    const banner = document.getElementById('netBanner');
+    if (banner) banner.classList.remove('show');
   }
 
   function sendMessage(obj) {
@@ -1938,7 +2060,14 @@
     helloInterval = setInterval(() => {
       if (gameStarted) return;
       sendMessage({ type: 'hello', name: myName });
-      if (isHost) sendMessage({ type: 'roster', players: lobbyPlayers });
+      if (isHost) {
+        // 최근에 신호 없는 대기자 정리(탭 전환·끊김 등으로 hello 끊긴 사람)
+        const now = Date.now();
+        const before = lobbyPlayers.length;
+        lobbyPlayers = lobbyPlayers.filter(p => p.id === myPlayerId || (lobbySeen[p.id] && now - lobbySeen[p.id] < 6000));
+        if (lobbyPlayers.length !== before) updateHostLobby();
+        sendMessage({ type: 'roster', players: lobbyPlayers });
+      }
     }, 1500);
   }
   function stopHelloLoop() {
@@ -1951,6 +2080,7 @@
       case 'hello':
         // Host registers any new player into the roster (cap 4) and re-broadcasts it.
         if (isHost && !gameStarted) {
+          lobbySeen[msg.from] = Date.now();
           if (!lobbyPlayers.find(p => p.id === msg.from) && lobbyPlayers.length < 4) {
             lobbyPlayers.push({ id: msg.from, name: 'P' + (lobbyPlayers.length + 1) });
             updateHostLobby();
@@ -2161,9 +2291,14 @@
   window.addEventListener('beforeunload', () => disconnectMqtt());
   window.addEventListener('resize', fitCanvas);
   window.addEventListener('orientationchange', () => setTimeout(fitCanvas, 100));
+  // iOS: 폰트/레이아웃 지연·bfcache 복귀 시 미니 박스가 깨지지 않게 재배치
+  window.addEventListener('pageshow', () => setTimeout(fitCanvas, 60));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitCanvas());
 
   grid = newGrid();
   requestAnimationFrame(() => { fitCanvas(); draw(); });
+  setTimeout(fitCanvas, 300);
+  setTimeout(fitCanvas, 800);
 })();
 </script>
 <script>
