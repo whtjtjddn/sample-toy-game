@@ -1443,10 +1443,15 @@
     if (clearing) return;
     const newRot = ((current.rotation + dir) % 4 + 4) % 4;
     const newShape = PIECES[current.name].shapes[newRot];
-    const kicks = [0, -1, 1, -2, 2];
-    for (const kick of kicks) {
-      if (!collide(current, kick, 0, newShape)) {
-        current.x += kick; current.rotation = newRot; current.shape = newShape;
+    // 좌우 킥 + 바닥에서 위로 띄우는 킥(floor kick) → 땅에 붙은 상태에서도 회전 가능
+    const kicks = [
+      [0, 0], [-1, 0], [1, 0],
+      [0, -1], [-1, -1], [1, -1],
+      [-2, 0], [2, 0], [0, -2],
+    ];
+    for (const [kx, ky] of kicks) {
+      if (!collide(current, kx, ky, newShape)) {
+        current.x += kx; current.y += ky; current.rotation = newRot; current.shape = newShape;
         buzz(6); tryResetLock(); return;
       }
     }
