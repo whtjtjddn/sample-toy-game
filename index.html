@@ -123,7 +123,9 @@
     border: 1px solid var(--line);
     border-radius: 6px;
     padding: 4px;
-    aspect-ratio: 1;
+    /* aspect-ratio 대신 명시적 정사각형: 높이를 .side 너비와 같은 clamp로 고정 (iOS 호환) */
+    width: clamp(46px, 14vw, 60px);
+    height: clamp(46px, 14vw, 60px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -798,6 +800,7 @@
   }
   @media (max-width: 340px) {
     .side { width: 42px; }
+    .mini-box { width: 42px; height: 42px; }
   }
 </style>
 </head>
@@ -1042,12 +1045,9 @@
 
   function sizeMini(el) {
     const box = el.canvas.parentElement;
-    const ow = box.offsetWidth;
-    if (ow === 0) return;
-    // 박스 높이를 너비와 같게 강제 → 정사각형.
-    // iOS Safari가 flex 안의 aspect-ratio를 제대로 적용 못 해 박스가 세로로 늘어나던 문제 해결.
-    box.style.height = ow + 'px';
-    const inner = box.clientWidth - 8;   // 패딩 제외한 캔버스 영역
+    const w = box.clientWidth;
+    if (w === 0) return;
+    const inner = w - 8;   // 패딩 제외한 캔버스 영역 (박스 크기는 CSS가 정사각형으로 고정)
     const cell = Math.max(6, Math.floor(inner / 4));
     el.cell = cell;
     const finalSize = cell * 4;
