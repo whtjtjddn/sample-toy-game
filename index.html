@@ -2042,7 +2042,7 @@
 
     // 데드존: 시작점에서 충분히 움직이기 전엔 탭(회전) 후보로 유지.
     // 손가락 미세 흔들림이 이동/소프트드롭으로 오인돼 회전이 씹히는 것 방지.
-    if (!touch.moved && Math.hypot(totalDx, totalDy) < 11) return;
+    if (!touch.moved && Math.hypot(totalDx, totalDy) < 14) return;
 
     // Hard drop: instantaneous high downward velocity + dominantly vertical, after some descent
     if (dy > 0) {
@@ -2071,7 +2071,7 @@
     // Vertical downward soft drop (continuous)
     if (dy > 0) {
       touch.accumY += dy;
-      const stepY = Math.max(BLOCK * 0.5, 14);
+      const stepY = Math.max(BLOCK * 0.6, 18);
       while (touch.accumY >= stepY) {
         softDrop();
         touch.accumY -= stepY;
@@ -2095,7 +2095,7 @@
     const dist = Math.hypot(totalDx, totalDy);
     // 탭 = 회전: 이동/드롭이 한 번도 발생하지 않았고 손가락이 거의 안 움직였으면.
     // 누른 시간 제한(dt) 제거 + 허용 반경 완화 → 길게/살짝 움직여 탭해도 회전됨.
-    if (!touch.moved && dist < 24) {
+    if (!touch.moved && dist < 34) {
       rotate(1);
       document.getElementById('gestureHint').classList.add('fade');
     }
