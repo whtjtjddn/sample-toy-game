@@ -1973,7 +1973,7 @@
   };
 
   function gestureStart(x, y) {
-    if (!running || paused || over || clearing) return;
+    if (!running || paused || over || clearing) { touch.active = false; return; }
     touch.active = true;
     touch.startX = touch.lastX = x;
     touch.startY = touch.lastY = y;
@@ -1993,6 +1993,10 @@
     touch.lastX = x; touch.lastY = y; touch.lastT = now;
     const totalDx = x - touch.startX;
     const totalDy = y - touch.startY;
+
+    // 데드존: 시작점에서 충분히 움직이기 전엔 탭(회전) 후보로 유지.
+    // 손가락 미세 흔들림이 이동/소프트드롭으로 오인돼 회전이 씹히는 것 방지.
+    if (!touch.moved && Math.hypot(totalDx, totalDy) < 11) return;
 
     // Hard drop: instantaneous high downward velocity + dominantly vertical, after some descent
     if (dy > 0) {
@@ -2043,7 +2047,9 @@
     const totalDx = x - touch.startX;
     const totalDy = y - touch.startY;
     const dist = Math.hypot(totalDx, totalDy);
-    if (!touch.moved && dist < 14 && dt < 280) {
+    // 탭 = 회전: 이동/드롭이 한 번도 발생하지 않았고 손가락이 거의 안 움직였으면.
+    // 누른 시간 제한(dt) 제거 + 허용 반경 완화 → 길게/살짝 움직여 탭해도 회전됨.
+    if (!touch.moved && dist < 24) {
       rotate(1);
       document.getElementById('gestureHint').classList.add('fade');
     }
