@@ -1,5 +1,5 @@
 // 네온 테트리스 PWA service worker
-const CACHE = 'neon-tetris-v9';
+const CACHE = 'neon-tetris-v10';
 
 // 앱 셸: 설치 시 미리 캐시 (오프라인에서 솔로 플레이 가능)
 const APP_SHELL = [

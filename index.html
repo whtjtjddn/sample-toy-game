@@ -58,6 +58,8 @@
     flex-direction: column;
     padding: calc(var(--safe-top) + 6px) 8px calc(var(--safe-bottom) + 6px);
     gap: 6px;
+    overflow: hidden;
+    max-width: 100vw;
   }
 
   /* TOP BAR */
@@ -1075,6 +1077,10 @@
   }
 
   function fitCanvas() {
+    // iOS Safari: 100vh/100dvh가 실제 보이는 영역보다 크게 잡혀 화면 밖으로 넘치는 문제 →
+    // 실제 가시 높이를 JS로 직접 지정해 오버플로우 방지.
+    const appEl = document.querySelector('.app');
+    if (appEl && window.innerHeight) appEl.style.height = window.innerHeight + 'px';
     const wrap = document.getElementById('boardWrap');
     const w = wrap.clientWidth, h = wrap.clientHeight;
     const cell = Math.floor(Math.min(w / COLS, h / ROWS));
