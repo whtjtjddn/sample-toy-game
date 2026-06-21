@@ -2065,29 +2065,36 @@
     }
   }
 
-  board.addEventListener('touchstart', e => {
+  // 제스처는 보드뿐 아니라 플레이 영역 전체(보드 + 양옆 패널 + 빈 공간)에서 받음.
+  // 단, 게임 진행 중이 아닐 땐(메뉴/일시정지/게임오버) 가로채지 않아 버튼·입력이 정상 동작.
+  const gestureZone = document.querySelector('.play-area');
+  const inPlay = () => running && !paused && !over;
+
+  gestureZone.addEventListener('touchstart', e => {
+    if (!inPlay()) return;
     e.preventDefault();
     const t = e.touches[0];
     gestureStart(t.clientX, t.clientY);
   }, {passive: false});
 
-  board.addEventListener('touchmove', e => {
+  gestureZone.addEventListener('touchmove', e => {
+    if (!touch.active) return;
     e.preventDefault();
     const t = e.touches[0];
     gestureMove(t.clientX, t.clientY);
   }, {passive: false});
 
-  board.addEventListener('touchend', e => {
+  gestureZone.addEventListener('touchend', e => {
     const t = e.changedTouches[0];
     gestureEnd(t.clientX, t.clientY);
   });
-  board.addEventListener('touchcancel', () => { touch.active = false; });
+  gestureZone.addEventListener('touchcancel', () => { touch.active = false; });
 
   // Mouse fallback for desktop testing
-  board.addEventListener('mousedown', e => { gestureStart(e.clientX, e.clientY); });
-  board.addEventListener('mousemove', e => { if (touch.active) gestureMove(e.clientX, e.clientY); });
-  board.addEventListener('mouseup', e => { gestureEnd(e.clientX, e.clientY); });
-  board.addEventListener('mouseleave', () => { touch.active = false; });
+  gestureZone.addEventListener('mousedown', e => { if (!inPlay()) return; gestureStart(e.clientX, e.clientY); });
+  gestureZone.addEventListener('mousemove', e => { if (touch.active) gestureMove(e.clientX, e.clientY); });
+  gestureZone.addEventListener('mouseup', e => { gestureEnd(e.clientX, e.clientY); });
+  gestureZone.addEventListener('mouseleave', () => { touch.active = false; });
 
   // ===== HOLD + UI buttons =====
   function safeBind(id, fn) {
