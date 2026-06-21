@@ -1248,6 +1248,29 @@
     osc.stop(start + dur + 0.03);
   }
 
+  // ===== 효과음(SFX) — 음소거(♪) 토글에 함께 묶임 =====
+  function playClearSfx(lines) {
+    if (!musicOn || !ensureAudio()) return;
+    const t0 = audioCtx.currentTime;
+    if (lines >= 4) {
+      // 테트리스: 상승 아르페지오 + 반짝
+      [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((f, i) =>
+        playTone(f, t0 + i * 0.052, 0.20, 'square', 0.30));
+      playTone(2093.0, t0 + 0.26, 0.22, 'triangle', 0.22);
+    } else {
+      const start = [0, 587.33, 698.46, 880.0][lines] || 587.33; // 1·2·3줄 시작음
+      playTone(start, t0, 0.10, 'square', 0.26);
+      playTone(start * 1.335, t0 + 0.058, 0.13, 'square', 0.24); // 살짝 위로(밝게)
+    }
+  }
+
+  function playDropSfx() {
+    if (!musicOn || !ensureAudio()) return;
+    const t0 = audioCtx.currentTime;
+    playTone(150, t0, 0.10, 'triangle', 0.30);       // 낮은 "쿵"
+    playTone(90, t0 + 0.012, 0.12, 'square', 0.18);
+  }
+
   function bgmScheduler() {
     if (!audioCtx) return;
     const ahead = audioCtx.currentTime + 0.12;
@@ -1390,6 +1413,7 @@
     slamV += 5 + power * 11;                        // 아래로 쾅 (스프링이 튕겨 정착)
     boardFlash = Math.max(boardFlash, 0.22 + power * 0.32);
     buzz(Math.round(16 + power * 26));             // 거리에 비례한 진동
+    playDropSfx();
     lockPiece();
   }
 
@@ -1486,6 +1510,7 @@
     // 줄 없앨 때 진동: 줄 수가 많을수록 강한 패턴 (안드로이드 등 Vibration API 지원 기기)
     const clearVib = { 1: 25, 2: [0, 25, 40, 25], 3: [0, 30, 40, 30, 40, 30], 4: [0, 45, 55, 90] };
     buzz(clearVib[c.cleared] || 25);
+    playClearSfx(c.cleared);
     updateStats();
 
     if (gameMode === 'vs') {
