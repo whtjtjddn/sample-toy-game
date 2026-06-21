@@ -1152,7 +1152,6 @@
   let score = 0, lines = 0, level = 1, chain = 0;
   let dropCounter = 0, dropInterval = 650;
   let lockTimer = 0, lockResets = 0;
-  let lowestY = 0;   // 이번 조각이 도달한 가장 낮은 위치 (lock reset 무한 회전 방지)
   let lastTime = 0;
   let running = false, paused = false, over = false;
   let rafId = null;
@@ -1352,13 +1351,8 @@
     fillQueue();
     current = makePiece(queue.shift());
     fillQueue();
-    lockTimer = 0; lockResets = 0; lowestY = current.y;
+    lockTimer = 0; lockResets = 0;
     if (collide(current, 0, 0)) gameOver();
-  }
-
-  // 조각이 새 최저점으로 내려갔을 때만 lock reset 카운터를 초기화 (무한 회전 방지)
-  function onDescend() {
-    if (current && current.y > lowestY) { lowestY = current.y; lockResets = 0; }
   }
   function collide(piece, dx, dy, shape) {
     const s = shape || piece.shape;
@@ -1404,7 +1398,6 @@
     if (!collide(current, 0, 1)) {
       current.y++; score += 1; updateStats();
       dropCounter = 0;
-      onDescend();
       return true;
     }
     return false;
@@ -1450,14 +1443,10 @@
     if (clearing) return;
     const newRot = ((current.rotation + dir) % 4 + 4) % 4;
     const newShape = PIECES[current.name].shapes[newRot];
-    // 좌우 킥 + 바닥에서 위로 1칸만 띄우는 최소 floor kick → 과한 떠오름 방지
-    const kicks = [
-      [0, 0], [-1, 0], [1, 0], [-2, 0], [2, 0],
-      [0, -1],
-    ];
-    for (const [kx, ky] of kicks) {
-      if (!collide(current, kx, ky, newShape)) {
-        current.x += kx; current.y += ky; current.rotation = newRot; current.shape = newShape;
+    const kicks = [0, -1, 1, -2, 2];
+    for (const kick of kicks) {
+      if (!collide(current, kick, 0, newShape)) {
+        current.x += kick; current.rotation = newRot; current.shape = newShape;
         buzz(6); tryResetLock(); return;
       }
     }
@@ -1477,7 +1466,7 @@
       hold = curName;
       current = makePiece(swapName);
     }
-    lockTimer = 0; lockResets = 0; dropCounter = 0; lowestY = current.y;
+    lockTimer = 0; lockResets = 0; dropCounter = 0;
     canHold = false;
     document.getElementById('holdBtn').classList.add('disabled');
     drawHold();
@@ -1900,8 +1889,8 @@
           lockTimer += delta;
           if (lockTimer >= LOCK_DELAY) lockPiece();
         } else {
-          lockTimer = 0;   // 공중에선 lock 타이머만 리셋, 리셋 카운터는 유지(무한 회전 방지)
-          if (dropCounter >= dropInterval) { current.y++; dropCounter = 0; onDescend(); }
+          lockTimer = 0; lockResets = 0;
+          if (dropCounter >= dropInterval) { current.y++; dropCounter = 0; }
         }
       }
       if (gameMode === 'vs' && gameStarted && !over) {
