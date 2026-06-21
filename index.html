@@ -213,6 +213,45 @@
   }
   #hostStartBtn:disabled { opacity: 0.4; }
 
+  /* Attack mode toggle */
+  .attack-mode {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .am-label {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 1.5px;
+  }
+  .am-toggle {
+    display: flex;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .am-toggle button {
+    background: transparent;
+    border: none;
+    color: var(--dim);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 5px 14px;
+    cursor: pointer;
+  }
+  .am-toggle button.active {
+    background: rgba(0,240,255,0.18);
+    color: var(--cool);
+    text-shadow: 0 0 6px var(--cool);
+  }
+  .am-readonly {
+    font-size: 12px;
+    color: var(--dim);
+    letter-spacing: 1px;
+  }
+  .am-readonly b { color: var(--cool); }
+
   /* Lobby chat */
   .chat-box {
     width: 100%;
@@ -781,8 +820,15 @@
         <div id="vsHostWait" style="display:none;flex-direction:column;align-items:center;gap:12px">
           <p>방 코드</p>
           <div class="room-code" id="hostCode">----</div>
-          <p class="hint">친구에게 알려주세요 (최대 4명)</p>
+          <p class="hint">친구에게 알려주세요 (최대 6명)</p>
           <div class="player-list" id="hostPlayerList"></div>
+          <div class="attack-mode" id="attackModeWrap">
+            <span class="am-label">공격</span>
+            <div class="am-toggle">
+              <button type="button" data-mode="random" class="active">무작위</button>
+              <button type="button" data-mode="payback">보복</button>
+            </div>
+          </div>
           <p class="status-line"><span class="conn-dot" id="hostDot"></span><span id="hostStatus">연결 중...</span></p>
           <button id="hostStartBtn" disabled>시작 (1명)</button>
           <button class="ghost" id="hostCancelBtn">취소</button>
@@ -796,6 +842,7 @@
         <div id="vsGuestWait" style="display:none;flex-direction:column;align-items:center;gap:12px">
           <p class="status-line"><span class="conn-dot" id="guestDot"></span><span id="guestStatus">연결 중...</span></p>
           <div class="player-list" id="guestPlayerList"></div>
+          <p class="am-readonly" id="guestAttackMode">공격 모드: 무작위</p>
           <p class="hint">방장이 시작하길 기다리는 중...</p>
           <button class="ghost" id="guestWaitCancelBtn">취소</button>
         </div>
@@ -1018,6 +1065,8 @@
   let myName = (() => { try { return localStorage.getItem(NICK_KEY) || ''; } catch (e) { return ''; } })();
   let lobbyPlayers = [];        // [{id, name}] authoritative roster (host) / mirror (guest)
   let lobbySeen = {};           // id -> 마지막 hello 수신 시각 (호스트가 끊긴 대기자 정리용)
+  let attackMode = 'random';    // 'random' | 'payback' (호스트가 정함)
+  let lastAttackerId = null;    // 보복 모드용: 마지막으로 나를 공격한 상대
   let opp = {};                 // id -> opponent record {id,name,grid,score,lines,over,canvas,ctx,block,boxEl,scoreEl}
   let aliveIds = new Set();     // player ids still alive (includes me)
   let myDead = false;
@@ -2015,6 +2064,13 @@
   });
   safeBind('rankingClearBtn', () => { Ranking.clearLocal(); renderRanking(); });
 
+  // 공격 모드 토글 (호스트만 변경 가능, 게스트는 표시만)
+  document.querySelectorAll('#attackModeWrap button').forEach(b => {
+    const handler = (e) => { e.preventDefault(); e.stopPropagation(); if (isHost) setAttackMode(b.dataset.mode); };
+    b.addEventListener('touchstart', handler, { passive: false });
+    b.addEventListener('click', handler);
+  });
+
   // ===== VS Lobby =====
   function generateRoomCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -2238,7 +2294,7 @@
     if (gameStarted) {
       if (gameMode === 'vs' && !over) broadcastState();
     } else if (isHost) {
-      sendMessage({ type: 'roster', players: lobbyPlayers });
+      broadcastRoster();
     }
   }
 
@@ -2302,6 +2358,10 @@
     mqttClient.publish(`${TOPIC_BASE}/${roomCode}`, payload);
   }
 
+  function broadcastRoster() {
+    sendMessage({ type: 'roster', players: lobbyPlayers, attackMode });
+  }
+
   function startHelloLoop() {
     stopHelloLoop();
     sendMessage({ type: 'hello', name: myName });
@@ -2314,7 +2374,7 @@
         const before = lobbyPlayers.length;
         lobbyPlayers = lobbyPlayers.filter(p => p.id === myPlayerId || (lobbySeen[p.id] && now - lobbySeen[p.id] < 6000));
         if (lobbyPlayers.length !== before) updateHostLobby();
-        sendMessage({ type: 'roster', players: lobbyPlayers });
+        broadcastRoster();
       }
     }, 1500);
   }
@@ -2329,21 +2389,23 @@
         // Host registers any new player into the roster (cap 4) and re-broadcasts it.
         if (isHost && !gameStarted) {
           lobbySeen[msg.from] = Date.now();
-          if (!lobbyPlayers.find(p => p.id === msg.from) && lobbyPlayers.length < 4) {
+          if (!lobbyPlayers.find(p => p.id === msg.from) && lobbyPlayers.length < 6) {
             const nm = (msg.name || '').trim() || ('P' + (lobbyPlayers.length + 1));
             lobbyPlayers.push({ id: msg.from, name: nm });
             updateHostLobby();
           }
-          sendMessage({ type: 'roster', players: lobbyPlayers });
+          broadcastRoster();
         }
         break;
       case 'roster':
-        // Guests mirror the host's authoritative roster.
+        // Guests mirror the host's authoritative roster + attack mode.
         if (!isHost) {
           lobbyPlayers = msg.players || [];
+          if (msg.attackMode) attackMode = msg.attackMode;
           const me = lobbyPlayers.find(p => p.id === myPlayerId);
           if (me) myName = me.name;
           updateGuestLobby();
+          updateAttackModeUI();
         }
         break;
       case 'chat':
@@ -2353,6 +2415,7 @@
         if (countdownActive) break;
         if (running && !over) break;
         lobbyPlayers = msg.players || lobbyPlayers;
+        if (msg.attackMode) attackMode = msg.attackMode;
         gameStarted = false;
         beginMatch();
         break;
@@ -2368,6 +2431,7 @@
       case 'attack':
         if (msg.target === myPlayerId && running && !over) {
           pendingAttacks.push({ amount: msg.amount, hole: msg.hole });
+          lastAttackerId = msg.from;   // 보복 모드용
           buzz(8);
         }
         break;
@@ -2391,7 +2455,7 @@
           aliveIds.delete(msg.from);
           checkVsEnd();
         } else {
-          if (isHost) { updateHostLobby(); sendMessage({ type: 'roster', players: lobbyPlayers }); }
+          if (isHost) { updateHostLobby(); broadcastRoster(); }
           else updateGuestLobby();
         }
         break;
@@ -2422,11 +2486,16 @@
     return atk;
   }
 
-  // Send garbage to one random still-alive opponent.
+  // Send garbage to one opponent. random=무작위 / payback=마지막으로 나를 친 상대(없으면 무작위)
   function sendAttackToRandom(amount) {
     const targets = [...aliveIds].filter(id => id !== myPlayerId && opp[id]);
     if (targets.length === 0) return;
-    const target = targets[Math.floor(Math.random() * targets.length)];
+    let target;
+    if (attackMode === 'payback' && lastAttackerId && targets.includes(lastAttackerId)) {
+      target = lastAttackerId;
+    } else {
+      target = targets[Math.floor(Math.random() * targets.length)];
+    }
     const hole = Math.floor(Math.random() * COLS);
     sendMessage({ type: 'attack', target, amount, hole });
   }
@@ -2455,7 +2524,7 @@
   // Host kicks off the match for everyone in the room.
   function hostStartGame() {
     if (!isHost || gameStarted || lobbyPlayers.length < 2) return;
-    sendMessage({ type: 'start', players: lobbyPlayers });
+    sendMessage({ type: 'start', players: lobbyPlayers, attackMode });
     beginMatch();
   }
 
@@ -2463,7 +2532,7 @@
     if (!isHost) return;
     if (lobbyPlayers.length < 2) { returnToMenu(); return; }
     gameStarted = false;
-    sendMessage({ type: 'start', players: lobbyPlayers });
+    sendMessage({ type: 'start', players: lobbyPlayers, attackMode });
     beginMatch();
   }
 
@@ -2473,8 +2542,23 @@
     stopHelloLoop();
     aliveIds = new Set(lobbyPlayers.map(p => p.id));
     myDead = false;
+    lastAttackerId = null;
     buildOppBoards(lobbyPlayers);
     beginCountdown();
+  }
+
+  function updateAttackModeUI() {
+    document.querySelectorAll('#attackModeWrap button').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === attackMode);
+    });
+    const g = document.getElementById('guestAttackMode');
+    if (g) g.innerHTML = '공격 모드: <b>' + (attackMode === 'payback' ? '보복' : '무작위') + '</b>';
+  }
+  function setAttackMode(mode) {
+    if (mode !== 'random' && mode !== 'payback') return;
+    attackMode = mode;
+    updateAttackModeUI();
+    if (isHost) broadcastRoster();
   }
 
   function updateHostLobby() {
@@ -2487,6 +2571,7 @@
     }
     const st = document.getElementById('hostStatus');
     if (st) st.textContent = lobbyPlayers.length < 2 ? '상대 대기 중...' : '시작할 수 있어요';
+    updateAttackModeUI();
   }
 
   function updateGuestLobby() {
@@ -2496,6 +2581,7 @@
       document.getElementById('guestStatus').textContent = '입장 완료! 방장 대기 중 (' + lobbyPlayers.length + '명)';
       document.getElementById('guestDot').className = 'conn-dot ok';
     }
+    updateAttackModeUI();
   }
 
   // ===== Countdown =====
