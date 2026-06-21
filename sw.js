@@ -1,5 +1,5 @@
 // 네온 테트리스 PWA service worker
-const CACHE = 'neon-tetris-v5';
+const CACHE = 'neon-tetris-v6';
 
 // 앱 셸: 설치 시 미리 캐시 (오프라인에서 솔로 플레이 가능)
 const APP_SHELL = [
@@ -36,6 +36,9 @@ self.addEventListener('fetch', (e) => {
   // MQTT 브로커(wss) 등 실시간 통신은 절대 캐시하지 않음
   if (url.protocol === 'ws:' || url.protocol === 'wss:') return;
   if (url.hostname.includes('emqx')) return;
+
+  // 랭킹 API는 항상 네트워크 (캐시 금지 → 최신 순위 반영)
+  if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) return;
 
   // 구글 폰트: 런타임 캐시 (cache-first, 백그라운드 갱신)
   if (url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com')) {
