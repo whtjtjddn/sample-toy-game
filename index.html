@@ -1160,6 +1160,7 @@
   let clearing = null;
   let popups = [];
   let shake = 0, boardFlash = 0;
+  let slam = 0, slamV = 0;   // 하드드랍 슬램(아래로 쾅 → 스프링 복원)
 
   // VS state (supports 2-4 players)
   let mqttClient = null;
@@ -1384,8 +1385,11 @@
     while (!collide(current, 0, 1)) { current.y++; dist++; }
     score += dist * 2;
     updateStats();
-    shake = Math.min(11, 4 + dist * 0.45);
-    buzz(18);
+    const power = Math.min(1, dist / 18);          // 0~1: 낙하 거리에 비례한 충격
+    shake = Math.min(20, 7 + dist * 0.9);          // 더 큰 진폭의 흔들림
+    slamV += 5 + power * 11;                        // 아래로 쾅 (스프링이 튕겨 정착)
+    boardFlash = Math.max(boardFlash, 0.22 + power * 0.32);
+    buzz(Math.round(16 + power * 26));             // 거리에 비례한 진동
     lockPiece();
   }
 
@@ -1610,9 +1614,9 @@
 
   function draw() {
     ctx.save();
-    if (shake > 0) {
+    if (shake > 0 || slam !== 0) {
       const dx = (Math.random() - 0.5) * shake;
-      const dy = (Math.random() - 0.5) * shake;
+      const dy = (Math.random() - 0.5) * shake * 0.7 + slam;  // 슬램은 보드를 아래로 밀어냄
       ctx.translate(dx, dy);
     }
     ctx.fillStyle = '#07001f';
@@ -1840,7 +1844,13 @@
     const delta = Math.min(100, time - lastTime);
     lastTime = time;
     if (!paused) {
-      if (shake > 0) { shake *= 0.82; if (shake < 0.4) shake = 0; }
+      if (shake > 0) { shake *= 0.80; if (shake < 0.4) shake = 0; }
+      if (slam !== 0 || slamV !== 0) {            // 감쇠 스프링: 아래로 쾅 → 살짝 튕겨 정착
+        slamV += -slam * 0.45;
+        slamV *= 0.62;
+        slam += slamV;
+        if (Math.abs(slam) < 0.3 && Math.abs(slamV) < 0.3) { slam = 0; slamV = 0; }
+      }
       if (boardFlash > 0) { boardFlash *= 0.88; if (boardFlash < 0.01) boardFlash = 0; }
       for (const p of popups) p.age += delta;
       popups = popups.filter(p => p.age < POPUP_LIFE);
@@ -1879,7 +1889,7 @@
     dropInterval = calcDropInterval(1);
     dropCounter = 0; lastTime = 0;
     lockTimer = 0; lockResets = 0;
-    clearing = null; popups = []; shake = 0; boardFlash = 0;
+    clearing = null; popups = []; shake = 0; boardFlash = 0; slam = 0; slamV = 0;
     pendingAttacks = [];
     for (const id in opp) {
       opp[id].grid = newGrid();
